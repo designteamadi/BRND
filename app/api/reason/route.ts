@@ -3,14 +3,22 @@ import { generateText, extractJson, hasGeminiKey } from "@/lib/gemini";
 import {
   brandSuggestionsPrompt,
   brandPersonaPrompt,
+  brandPalettesRefinePrompt,
+  brandTypographyRefinePrompt,
   campaignSuggestionsPrompt,
   campaignPersonaPrompt,
+  campaignPalettesRefinePrompt,
+  campaignTypographyRefinePrompt,
 } from "@/lib/prompts";
 import {
   mockBrandSuggestions,
   mockBrandPersona,
+  mockBrandPalettes,
+  mockBrandTypography,
   mockCampaignSuggestions,
   mockCampaignPersona,
+  mockCampaignPalettes,
+  mockCampaignTypography,
 } from "@/lib/mocks";
 import type { ReasonRequest } from "@/lib/types";
 
@@ -48,6 +56,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ mocked, data });
     }
 
+    if (body.kind === "brand-palettes") {
+      if (mocked) {
+        return NextResponse.json({
+          mocked,
+          data: mockBrandPalettes(body.input, body.note),
+        });
+      }
+      const raw = await generateText(
+        brandPalettesRefinePrompt(body.input, body.note)
+      );
+      const data =
+        extractJson<object>(raw) ?? mockBrandPalettes(body.input, body.note);
+      return NextResponse.json({ mocked, data });
+    }
+
+    if (body.kind === "brand-typography") {
+      if (mocked) {
+        return NextResponse.json({
+          mocked,
+          data: mockBrandTypography(body.input, body.note),
+        });
+      }
+      const raw = await generateText(
+        brandTypographyRefinePrompt(body.input, body.note)
+      );
+      const data =
+        extractJson<object>(raw) ?? mockBrandTypography(body.input, body.note);
+      return NextResponse.json({ mocked, data });
+    }
+
     if (body.kind === "campaign-suggestions") {
       if (mocked) {
         return NextResponse.json({
@@ -73,6 +111,38 @@ export async function POST(req: NextRequest) {
       );
       const data =
         extractJson<object>(raw) ?? mockCampaignPersona(body.input);
+      return NextResponse.json({ mocked, data });
+    }
+
+    if (body.kind === "campaign-palettes") {
+      if (mocked) {
+        return NextResponse.json({
+          mocked,
+          data: mockCampaignPalettes(body.input, body.note),
+        });
+      }
+      const raw = await generateText(
+        campaignPalettesRefinePrompt(body.input, body.note)
+      );
+      const data =
+        extractJson<object>(raw) ??
+        mockCampaignPalettes(body.input, body.note);
+      return NextResponse.json({ mocked, data });
+    }
+
+    if (body.kind === "campaign-typography") {
+      if (mocked) {
+        return NextResponse.json({
+          mocked,
+          data: mockCampaignTypography(body.input, body.note),
+        });
+      }
+      const raw = await generateText(
+        campaignTypographyRefinePrompt(body.input, body.note)
+      );
+      const data =
+        extractJson<object>(raw) ??
+        mockCampaignTypography(body.input, body.note);
       return NextResponse.json({ mocked, data });
     }
 
