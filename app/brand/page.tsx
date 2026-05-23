@@ -282,6 +282,12 @@ export default function BrandFlow() {
     setBusy(true);
     setGenError(null);
     setMode("brand");
+    // eslint-disable-next-line no-console
+    console.log("[finalize] start", {
+      businessName: brand.businessName,
+      palette: selectedPalette.name,
+      type: `${selectedType.display}/${selectedType.body}`,
+    });
     try {
       // 1. Persona
       const personaRes = await fetch("/api/reason", {
@@ -297,13 +303,44 @@ export default function BrandFlow() {
         throw new Error(`Persona service returned ${personaRes.status}`);
       }
       const personaJson = (await personaRes.json()) as {
-        data?: Persona;
+        data?: Partial<Persona>;
         error?: string;
       };
-      if (personaJson.error || !personaJson.data?.name) {
-        throw new Error(personaJson.error || "Couldn't generate persona");
+      // Persona must have name + description + traits[] for the Bento to
+      // render without crashing. If ANY field is missing or malformed,
+      // synthesize a fallback from the brand inputs rather than throw —
+      // we'd rather ship an imperfect persona than fail to render the result.
+      const d = personaJson.data;
+      const validPersona =
+        d &&
+        typeof d.name === "string" &&
+        d.name.trim().length > 0 &&
+        typeof d.description === "string" &&
+        d.description.trim().length > 0 &&
+        Array.isArray(d.traits) &&
+        d.traits.length > 0 &&
+        d.traits.every((t) => typeof t === "string");
+      const persona: Persona = validPersona
+        ? (d as Persona)
+        : {
+            name: brand.businessName || "The Brand",
+            description:
+              brand.description ||
+              brand.mission ||
+              `A brand built around ${brand.toneKeywords.join(", ") || "honest craft"}.`,
+            traits:
+              brand.toneKeywords.length > 0
+                ? brand.toneKeywords.slice(0, 5)
+                : ["considered", "deliberate", "honest", "warm", "specific"],
+          };
+      if (!validPersona) {
+        // Visible in DevTools so the user can see why a synthetic was used.
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[finalize] persona response was malformed; using synthetic fallback",
+          { received: personaJson }
+        );
       }
-      const persona = personaJson.data;
 
       // 2. Logo
       const logoPrompt = `Studio brand logo for "${brand.businessName}". Style: ${brand.logoStyle}. ${brand.logoPrompt}. Clean, modern, on a plain background, suitable as a brand mark. Premium feel.`;
@@ -350,8 +387,16 @@ export default function BrandFlow() {
         mockupImages: imgResults.map((r) => r?.dataUrl),
       };
       setGeneratedBrand(generated);
+      // eslint-disable-next-line no-console
+      console.log("[finalize] success → /result", {
+        mockupCount: imgResults.filter((r) => r?.dataUrl).length,
+        hasLogo: Boolean(logoRes?.dataUrl),
+        usedSyntheticPersona: !validPersona,
+      });
       router.push("/result");
     } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[finalize] failed", e);
       setGenError(
         e instanceof Error
           ? `Couldn't finish generating — ${e.message}`
