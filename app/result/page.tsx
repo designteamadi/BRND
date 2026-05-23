@@ -48,13 +48,30 @@ export default function ResultPage() {
   const isCampaign = mode === "campaign" && c;
   if (!g && !c) return null;
 
-  // Common derived
+  // Common derived — with defensive fallbacks for partially-malformed
+  // generated data so the page never blanks out on a missing field.
   const name = isCampaign ? c!.input.brandName : g!.input.businessName;
   const archetypes = isCampaign ? c!.input.archetypes : g!.input.archetypes;
   const tone = isCampaign ? c!.input.toneKeywords : g!.input.toneKeywords;
-  const palette = isCampaign ? c!.selectedPalette! : g!.selectedPalette!;
-  const type = isCampaign ? c!.selectedType! : g!.selectedType!;
-  const persona = isCampaign ? c!.persona : g!.persona;
+  const palette = (isCampaign ? c!.selectedPalette : g!.selectedPalette) ?? {
+    name: "—",
+    hexes: ["#0a0a0a", "#c8ff3e", "#f5f0e8", "#ff3e8e"],
+    rationale: "",
+  };
+  const type = (isCampaign ? c!.selectedType : g!.selectedType) ?? {
+    display: "serif",
+    body: "sans-serif",
+    rationale: "",
+  };
+  const persona = (isCampaign ? c!.persona : g!.persona) ?? {
+    name: name,
+    description: "",
+    traits: [],
+  };
+  const safeHexes =
+    Array.isArray(palette.hexes) && palette.hexes.length >= 3
+      ? palette.hexes
+      : ["#0a0a0a", "#c8ff3e", "#f5f0e8", "#ff3e8e"];
   const mockups = isCampaign ? c!.mockupImages ?? [] : g!.mockupImages ?? [];
   const mockupPrompts = isCampaign
     ? c!.mockupPrompts ?? []
@@ -308,13 +325,13 @@ export default function ResultPage() {
             <div
               className="p-10 rounded-lg"
               style={{
-                background: palette.hexes[0],
-                color: palette.hexes[2],
+                background: safeHexes[0],
+                color: safeHexes[2],
               }}
             >
               <p
                 className="eyebrow mb-6"
-                style={{ color: palette.hexes[1] }}
+                style={{ color: safeHexes[1] }}
               >
                 {name} · brand book v0.1
               </p>
@@ -322,7 +339,7 @@ export default function ResultPage() {
                 className="text-6xl tracking-tightest mb-6"
                 style={{
                   fontFamily: `'${type.display}', serif`,
-                  color: palette.hexes[2],
+                  color: safeHexes[2],
                 }}
               >
                 {tagline ?? cta ?? name}
@@ -331,14 +348,14 @@ export default function ResultPage() {
                 className="leading-relaxed max-w-xl"
                 style={{
                   fontFamily: `'${type.body}', sans-serif`,
-                  color: palette.hexes[2],
+                  color: safeHexes[2],
                   opacity: 0.85,
                 }}
               >
                 {story ?? persona.description}
               </p>
               <div className="flex gap-2 mt-8">
-                {palette.hexes.map((h) => (
+                {safeHexes.map((h) => (
                   <div
                     key={h}
                     className="w-10 h-10"
