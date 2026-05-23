@@ -119,8 +119,12 @@ export type GeneratedCampaign = {
 export type ReasonRequest =
   | { kind: "brand-suggestions"; input: BrandInput }
   | { kind: "brand-persona"; input: BrandInput; palette: ColorPalette }
+  | { kind: "brand-palettes"; input: BrandInput; note?: string }
+  | { kind: "brand-typography"; input: BrandInput; note?: string }
   | { kind: "campaign-suggestions"; input: CampaignInput }
-  | { kind: "campaign-persona"; input: CampaignInput; palette: ColorPalette };
+  | { kind: "campaign-persona"; input: CampaignInput; palette: ColorPalette }
+  | { kind: "campaign-palettes"; input: CampaignInput; note?: string }
+  | { kind: "campaign-typography"; input: CampaignInput; note?: string };
 
 export type ImageRequest = {
   prompt: string;
