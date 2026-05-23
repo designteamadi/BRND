@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import StepShell from "@/components/StepShell";
 import ArchetypePicker from "@/components/ArchetypePicker";
@@ -42,6 +42,8 @@ export default function CampaignFlow() {
   );
   const [selectedType, setSelectedType] = useState<TypePairing | null>(null);
 
+  const [genError, setGenError] = useState<string | null>(null);
+
   // ---------- Refinement state (steps 6 & 7) ----------
   const [paletteNote, setPaletteNote] = useState("");
   const [paletteRegenBusy, setPaletteRegenBusy] = useState(false);
@@ -51,6 +53,9 @@ export default function CampaignFlow() {
   const [typeNote, setTypeNote] = useState("");
   const [typeRegenBusy, setTypeRegenBusy] = useState(false);
   const [typeRegenError, setTypeRegenError] = useState<string | null>(null);
+
+  // Monotonic op counter — see brand/page.tsx for full explanation.
+  const opSeqRef = useRef(0);
 
   const {
     campaign,
@@ -66,25 +71,47 @@ export default function CampaignFlow() {
   const next = () => setStep((s) => Math.min(TOTAL, s + 1));
   const back = () => setStep((s) => Math.max(1, s - 1));
 
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = async (): Promise<boolean> => {
+    const seq = ++opSeqRef.current;
     setBusy(true);
+    setGenError(null);
     try {
       const res = await fetch("/api/reason", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "campaign-suggestions", input: campaign }),
       });
-      const { data } = (await res.json()) as { data: Suggestions };
-      setSuggestions(data);
-      setSelectedPalette(data.palettes?.[0] ?? null);
-      setSelectedType(data.typography?.[0] ?? null);
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const json = (await res.json()) as {
+        data?: Suggestions;
+        error?: string;
+      };
+      if (seq !== opSeqRef.current) return false;
+      if (json.error) throw new Error(json.error);
+      if (
+        !json.data?.palettes?.length ||
+        !json.data?.typography?.length
+      ) {
+        throw new Error("Incomplete suggestions returned");
+      }
+      setSuggestions(json.data);
+      setSelectedPalette(json.data.palettes[0] ?? null);
+      setSelectedType(json.data.typography[0] ?? null);
+      return true;
+    } catch (e) {
+      if (seq !== opSeqRef.current) return false;
+      setGenError(
+        e instanceof Error
+          ? `Couldn't generate suggestions — ${e.message}`
+          : "Couldn't generate suggestions"
+      );
+      return false;
     } finally {
-      setBusy(false);
+      if (seq === opSeqRef.current) setBusy(false);
     }
   };
 
-  // Kick off concept thumbnails. Stale-result guarded so a re-generation
-  // mid-flight doesn't paint old thumbnails onto new palettes.
+  // Concept-thumbnail effect — stale-guard same as brand flow.
   useEffect(() => {
     if (!suggestions || !suggestions.conceptThumbnailPrompts) return;
     if (suggestions.palettes.every((p) => p.conceptImageDataUrl)) return;
@@ -127,6 +154,7 @@ export default function CampaignFlow() {
   // ---------- Regenerate campaign directions (step 6) ----------
   const regeneratePalettes = async () => {
     if (paletteRegenBusy) return;
+    const seq = ++opSeqRef.current;
     setPaletteRegenBusy(true);
     setPaletteRegenError(null);
     try {
@@ -139,16 +167,15 @@ export default function CampaignFlow() {
           note: paletteNote.trim() || undefined,
         }),
       });
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const json = (await res.json()) as {
         data?: {
           palettes: ColorPalette[];
-          conceptThumbnailPrompts: string[];
+          conceptThumbnailPrompts?: string[];
         };
         error?: string;
       };
+      if (seq !== opSeqRef.current) return;
       if (json.error || !json.data?.palettes?.length) {
         throw new Error(json.error || "No palettes returned");
       }
@@ -157,32 +184,40 @@ export default function CampaignFlow() {
         ...p,
         conceptImageDataUrl: undefined,
       }));
+      const safePrompts =
+        conceptThumbnailPrompts &&
+        conceptThumbnailPrompts.length === fresh.length
+          ? conceptThumbnailPrompts
+          : fresh.map(
+              (p) =>
+                `Cinematic campaign hero composition for "${campaign.campaignName || campaign.brandName}", ${p.name} direction — ${p.rationale}`
+            );
       setSuggestions((prev) => {
         if (!prev) return prev;
+        if (seq !== opSeqRef.current) return prev;
         return {
           ...prev,
           palettes: fresh,
-          conceptThumbnailPrompts:
-            conceptThumbnailPrompts && conceptThumbnailPrompts.length
-              ? conceptThumbnailPrompts
-              : prev.conceptThumbnailPrompts,
+          conceptThumbnailPrompts: safePrompts,
         };
       });
       setSelectedPalette(fresh[0] ?? null);
     } catch (e) {
+      if (seq !== opSeqRef.current) return;
       setPaletteRegenError(
         e instanceof Error
           ? `Couldn't regenerate directions — ${e.message}`
           : "Couldn't regenerate directions"
       );
     } finally {
-      setPaletteRegenBusy(false);
+      if (seq === opSeqRef.current) setPaletteRegenBusy(false);
     }
   };
 
   // ---------- Regenerate campaign typography (step 7) ----------
   const regenerateTypography = async () => {
     if (typeRegenBusy) return;
+    const seq = ++opSeqRef.current;
     setTypeRegenBusy(true);
     setTypeRegenError(null);
     try {
@@ -195,36 +230,38 @@ export default function CampaignFlow() {
           note: typeNote.trim() || undefined,
         }),
       });
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const json = (await res.json()) as {
         data?: { typography: TypePairing[] };
         error?: string;
       };
+      if (seq !== opSeqRef.current) return;
       if (json.error || !json.data?.typography?.length) {
         throw new Error(json.error || "No typography returned");
       }
       const { typography } = json.data;
       setSuggestions((prev) => {
         if (!prev) return prev;
+        if (seq !== opSeqRef.current) return prev;
         return { ...prev, typography };
       });
       setSelectedType(typography[0] ?? null);
     } catch (e) {
+      if (seq !== opSeqRef.current) return;
       setTypeRegenError(
         e instanceof Error
           ? `Couldn't regenerate typography — ${e.message}`
           : "Couldn't regenerate typography"
       );
     } finally {
-      setTypeRegenBusy(false);
+      if (seq === opSeqRef.current) setTypeRegenBusy(false);
     }
   };
 
   const finalize = async () => {
     if (!selectedPalette || !selectedType || !suggestions) return;
     setBusy(true);
+    setGenError(null);
     setMode("campaign");
     try {
       const personaRes = await fetch("/api/reason", {
@@ -236,13 +273,21 @@ export default function CampaignFlow() {
           palette: selectedPalette,
         }),
       });
-      const personaJson = await personaRes.json();
-      const persona = personaJson.data as Persona;
+      if (!personaRes.ok) {
+        throw new Error(`Persona service returned ${personaRes.status}`);
+      }
+      const personaJson = (await personaRes.json()) as {
+        data?: Persona;
+        error?: string;
+      };
+      if (personaJson.error || !personaJson.data?.name) {
+        throw new Error(personaJson.error || "Couldn't generate persona");
+      }
+      const persona = personaJson.data;
 
       const prompts = (suggestions.mockupPrompts || []).slice(0, 3);
       const userLogo = campaign.logoDataUrl;
 
-      // Generate mockups, compositing the uploaded logo onto each scene
       const imgResults = await Promise.all(
         prompts.map((p, i) =>
           fetch("/api/image", {
@@ -255,7 +300,9 @@ export default function CampaignFlow() {
               aspectRatio: i === 0 ? "9:16" : "1:1",
               inputImages: userLogo ? [userLogo] : undefined,
             }),
-          }).then((r) => r.json())
+          })
+            .then((r) => r.json())
+            .catch(() => ({ dataUrl: undefined }))
         )
       );
 
@@ -275,6 +322,12 @@ export default function CampaignFlow() {
       };
       setGeneratedCampaign(generated);
       router.push("/result");
+    } catch (e) {
+      setGenError(
+        e instanceof Error
+          ? `Couldn't finish generating — ${e.message}`
+          : "Couldn't finish generating"
+      );
     } finally {
       setBusy(false);
     }
@@ -506,8 +559,8 @@ export default function CampaignFlow() {
         subtitle="Campaigns can lean different from the parent brand. That contrast is often the move."
         nextDisabled={campaign.archetypes.length === 0}
         onNext={async () => {
-          await fetchSuggestions();
-          next();
+          const ok = await fetchSuggestions();
+          if (ok) next();
         }}
         onBack={back}
         busy={busy}
@@ -524,6 +577,19 @@ export default function CampaignFlow() {
               onToggle={toggleCampaignTone}
             />
           </div>
+          {genError && (
+            <div
+              role="alert"
+              className="border border-ember/40 bg-ember/5 p-4"
+            >
+              <p className="font-mono text-xs text-ember tracking-wide">
+                {genError}
+              </p>
+              <p className="font-mono text-[10px] text-ash mt-2">
+                Click Continue to try again.
+              </p>
+            </div>
+          )}
         </div>
       </StepShell>
     );
@@ -551,7 +617,7 @@ export default function CampaignFlow() {
         }
         nextDisabled={!selectedPalette || paletteRegenBusy}
         onNext={next}
-        onBack={back}
+        onBack={paletteRegenBusy ? undefined : back}
       >
         {suggestions ? (
           <>
@@ -598,7 +664,7 @@ export default function CampaignFlow() {
         subtitle="Display + body. Currently-available Google Fonts only. Refine below if these don't fit."
         nextDisabled={!selectedType || typeRegenBusy}
         onNext={next}
-        onBack={back}
+        onBack={typeRegenBusy ? undefined : back}
       >
         {suggestions ? (
           <>
@@ -711,6 +777,19 @@ export default function CampaignFlow() {
           }
         />
       </div>
+      {genError && (
+        <div
+          role="alert"
+          className="mt-10 max-w-4xl border border-ember/40 bg-ember/5 p-4"
+        >
+          <p className="font-mono text-xs text-ember tracking-wide">
+            {genError}
+          </p>
+          <p className="font-mono text-[10px] text-ash mt-2">
+            Click Generate bento again to retry.
+          </p>
+        </div>
+      )}
     </StepShell>
   );
 }
