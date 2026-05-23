@@ -263,6 +263,12 @@ export default function CampaignFlow() {
     setBusy(true);
     setGenError(null);
     setMode("campaign");
+    // eslint-disable-next-line no-console
+    console.log("[finalize:campaign] start", {
+      campaignName: campaign.campaignName,
+      palette: selectedPalette.name,
+      type: `${selectedType.display}/${selectedType.body}`,
+    });
     try {
       const personaRes = await fetch("/api/reason", {
         method: "POST",
@@ -277,13 +283,42 @@ export default function CampaignFlow() {
         throw new Error(`Persona service returned ${personaRes.status}`);
       }
       const personaJson = (await personaRes.json()) as {
-        data?: Persona;
+        data?: Partial<Persona>;
         error?: string;
       };
-      if (personaJson.error || !personaJson.data?.name) {
-        throw new Error(personaJson.error || "Couldn't generate persona");
+      // Persona must have name + description + traits[] for the Bento to
+      // render without crashing. If any field is missing or malformed,
+      // synthesize a fallback from the campaign inputs rather than throw.
+      const d = personaJson.data;
+      const validPersona =
+        d &&
+        typeof d.name === "string" &&
+        d.name.trim().length > 0 &&
+        typeof d.description === "string" &&
+        d.description.trim().length > 0 &&
+        Array.isArray(d.traits) &&
+        d.traits.length > 0 &&
+        d.traits.every((t) => typeof t === "string");
+      const persona: Persona = validPersona
+        ? (d as Persona)
+        : {
+            name: campaign.campaignName || campaign.brandName || "The Voice",
+            description:
+              campaign.campaignStory ||
+              campaign.campaignPurpose ||
+              `A campaign voice built around ${campaign.toneKeywords.join(", ") || "conviction"}.`,
+            traits:
+              campaign.toneKeywords.length > 0
+                ? campaign.toneKeywords.slice(0, 5)
+                : ["composed", "incisive", "low-volume", "high-conviction", "magnetic"],
+          };
+      if (!validPersona) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[finalize] campaign persona response was malformed; using synthetic fallback",
+          { received: personaJson }
+        );
       }
-      const persona = personaJson.data;
 
       const prompts = (suggestions.mockupPrompts || []).slice(0, 3);
       const userLogo = campaign.logoDataUrl;
@@ -321,8 +356,16 @@ export default function CampaignFlow() {
         mockupImages: imgResults.map((r) => r?.dataUrl),
       };
       setGeneratedCampaign(generated);
+      // eslint-disable-next-line no-console
+      console.log("[finalize:campaign] success → /result", {
+        mockupCount: imgResults.filter((r) => r?.dataUrl).length,
+        hasLogo: Boolean(userLogo),
+        usedSyntheticPersona: !validPersona,
+      });
       router.push("/result");
     } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[finalize:campaign] failed", e);
       setGenError(
         e instanceof Error
           ? `Couldn't finish generating — ${e.message}`
