@@ -55,12 +55,21 @@ export default function Bento(props: Props) {
     }
   };
 
+  // Defensive fallbacks — if upstream data is malformed (missing palette
+  // hexes, missing persona fields, etc.), render with safe defaults rather
+  // than crashing the whole page.
+  const hexes = palette?.hexes ?? [];
   const [c0, c1, c2, c3] = [
-    palette.hexes[0] || "#0a0a0a",
-    palette.hexes[1] || "#c8ff3e",
-    palette.hexes[2] || "#f5f0e8",
-    palette.hexes[3] || "#ff3e8e",
+    hexes[0] || "#0a0a0a",
+    hexes[1] || "#c8ff3e",
+    hexes[2] || "#f5f0e8",
+    hexes[3] || "#ff3e8e",
   ];
+  const personaName = persona?.name ?? "—";
+  const personaDescription = persona?.description ?? "";
+  const personaTraits = Array.isArray(persona?.traits) ? persona!.traits : [];
+  const displayFont = type?.display ?? "serif";
+  const bodyFont = type?.body ?? "sans-serif";
 
   const tileMotion = (i: number) => ({
     initial: { opacity: 0, y: 18, scale: 0.985 },
@@ -72,8 +81,8 @@ export default function Bento(props: Props) {
     },
   });
 
-  const gfDisplay = type.display.replace(/\s+/g, "+");
-  const gfBody = type.body.replace(/\s+/g, "+");
+  const gfDisplay = displayFont.replace(/\s+/g, "+");
+  const gfBody = bodyFont.replace(/\s+/g, "+");
 
   return (
     <>
@@ -110,7 +119,7 @@ export default function Bento(props: Props) {
             <Mark color={c1} />
             <span
               className="text-7xl md:text-8xl tracking-tightest"
-              style={{ fontFamily: `'${type.display}', serif`, color: c2 }}
+              style={{ fontFamily: `'${displayFont}', serif`, color: c2 }}
             >
               {name}
               <span style={{ color: c1 }}>.</span>
@@ -119,7 +128,7 @@ export default function Bento(props: Props) {
           {tagline && (
             <p
               className="text-base md:text-lg max-w-md leading-snug opacity-80"
-              style={{ fontFamily: `'${type.body}', sans-serif`, color: c2 }}
+              style={{ fontFamily: `'${bodyFont}', sans-serif`, color: c2 }}
             >
               {tagline}
             </p>
@@ -153,7 +162,7 @@ export default function Bento(props: Props) {
             <p
               className="text-3xl md:text-4xl leading-none mix-blend-difference"
               style={{
-                fontFamily: `'${type.display}', serif`,
+                fontFamily: `'${displayFont}', serif`,
                 color: c2,
               }}
             >
@@ -168,7 +177,7 @@ export default function Bento(props: Props) {
           className="rounded-lg overflow-hidden flex flex-col"
           style={{ gridColumn: "span 2", gridRow: "span 2" }}
         >
-          {palette.hexes.map((h) => (
+          {hexes.map((h) => (
             <div
               key={h}
               className="flex-1 flex items-end p-3"
@@ -199,24 +208,24 @@ export default function Bento(props: Props) {
           <div className="flex-1 flex flex-col justify-between gap-4">
             <div>
               <p className="font-mono text-[10px] tracking-widest uppercase text-ash mb-1">
-                display · {type.display}
+                display · {displayFont}
               </p>
               <p
                 className="text-5xl leading-none text-bone tracking-tightest"
-                style={{ fontFamily: `'${type.display}', serif` }}
+                style={{ fontFamily: `'${displayFont}', serif` }}
               >
                 Aa Rr 0–9
               </p>
             </div>
             <div>
               <p className="font-mono text-[10px] tracking-widest uppercase text-ash mb-1">
-                body · {type.body}
+                body · {bodyFont}
               </p>
               <p
                 className="text-sm text-ash leading-relaxed"
-                style={{ fontFamily: `'${type.body}', sans-serif` }}
+                style={{ fontFamily: `'${bodyFont}', sans-serif` }}
               >
-                {persona.description.slice(0, 110)}…
+                {personaDescription.slice(0, 110)}…
               </p>
             </div>
           </div>
@@ -303,18 +312,18 @@ export default function Bento(props: Props) {
           <p className="eyebrow mb-3">03 / persona</p>
           <p
             className="text-3xl mb-3 leading-tight"
-            style={{ fontFamily: `'${type.display}', serif`, color: c2 }}
+            style={{ fontFamily: `'${displayFont}', serif`, color: c2 }}
           >
-            {persona.name}
+            {personaName}
           </p>
           <p
             className="text-sm leading-relaxed flex-1 text-ash"
-            style={{ fontFamily: `'${type.body}', sans-serif` }}
+            style={{ fontFamily: `'${bodyFont}', sans-serif` }}
           >
-            {persona.description}
+            {personaDescription}
           </p>
           <div className="flex flex-wrap gap-1.5 mt-3">
-            {persona.traits.slice(0, 5).map((t) => (
+            {personaTraits.slice(0, 5).map((t) => (
               <span
                 key={t}
                 className="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded"
@@ -372,7 +381,7 @@ export default function Bento(props: Props) {
             </p>
             <div
               className="grid grid-cols-1 md:grid-cols-2 gap-2"
-              style={{ fontFamily: `'${type.body}', sans-serif` }}
+              style={{ fontFamily: `'${bodyFont}', sans-serif` }}
             >
               {headlines.slice(0, 4).map((h, i) => (
                 <p
@@ -415,7 +424,7 @@ export default function Bento(props: Props) {
               </p>
               <p
                 className="text-lg"
-                style={{ fontFamily: `'${type.display}', serif`, color: c2 }}
+                style={{ fontFamily: `'${displayFont}', serif`, color: c2 }}
               >
                 {archetypeLabel}
               </p>
@@ -429,7 +438,7 @@ export default function Bento(props: Props) {
               </p>
               <p
                 className="text-sm opacity-80"
-                style={{ fontFamily: `'${type.body}', sans-serif`, color: c2 }}
+                style={{ fontFamily: `'${bodyFont}', sans-serif`, color: c2 }}
               >
                 {toneLabel}
               </p>
@@ -452,7 +461,7 @@ export default function Bento(props: Props) {
           >
             <p
               className="text-3xl md:text-4xl tracking-tightest"
-              style={{ fontFamily: `'${type.display}', serif` }}
+              style={{ fontFamily: `'${displayFont}', serif` }}
             >
               {cta}
             </p>
@@ -481,7 +490,7 @@ export default function Bento(props: Props) {
             <p className="eyebrow mb-2">pattern note</p>
             <p
               className="text-bone leading-relaxed"
-              style={{ fontFamily: `'${type.body}', sans-serif` }}
+              style={{ fontFamily: `'${bodyFont}', sans-serif` }}
             >
               {patternIdea}
             </p>
