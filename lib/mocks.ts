@@ -41,6 +41,129 @@ const TYPES: TypePairing[] = [
   },
 ];
 
+/* ---------- Refinement mock pools (used when no GEMINI_API_KEY) ---------- */
+
+const ALT_PALETTE_SETS: ColorPalette[][] = [
+  [
+    {
+      name: "Bone & Iron",
+      hexes: ["#f4f0e6", "#1c1c1e", "#8a8a8a", "#c0392b"],
+      rationale: "Editorial restraint with a single arterial accent.",
+    },
+    {
+      name: "Saffron Hush",
+      hexes: ["#fff8e7", "#f2a900", "#1a1a1a", "#5e3a1a"],
+      rationale: "Warm daylight tones around a confident gold anchor.",
+    },
+    {
+      name: "Glacier Static",
+      hexes: ["#e6f0f3", "#7fb8c4", "#0a0f1a", "#ff5a3c"],
+      rationale: "Cool clinical surface broken by a single signal hit.",
+    },
+  ],
+  [
+    {
+      name: "Tannin",
+      hexes: ["#2b1810", "#a8714b", "#f0e6d2", "#4a2c20"],
+      rationale: "Saturated leather and parchment, hand-set feel.",
+    },
+    {
+      name: "Lab Coat",
+      hexes: ["#ffffff", "#0066ff", "#101010", "#cccccc"],
+      rationale: "Mid-century laboratory clarity, one bright signal.",
+    },
+    {
+      name: "Wet Garden",
+      hexes: ["#0c2018", "#7ab87a", "#f5f5e8", "#c4a843"],
+      rationale: "Damp foliage tones with a quiet aged-gold counterpoint.",
+    },
+  ],
+  [
+    {
+      name: "Velvet Hour",
+      hexes: ["#1a0e1d", "#7d3c98", "#e9c0e0", "#ffc857"],
+      rationale: "Late-night velvet with a single warm filament.",
+    },
+    {
+      name: "Bauhaus Hi-Vis",
+      hexes: ["#fefae0", "#d62828", "#003049", "#f77f00"],
+      rationale: "Primary geometry, no apologies, full conviction.",
+    },
+    {
+      name: "Slate Bloom",
+      hexes: ["#2c333a", "#d4a373", "#faedcd", "#606c38"],
+      rationale: "Slate and ochre softened by an unexpected olive.",
+    },
+  ],
+];
+
+const ALT_TYPE_SETS: TypePairing[][] = [
+  [
+    {
+      display: "Editorial New",
+      body: "Söhne",
+      rationale: "High-contrast modern serif against a precise neo-grotesque.",
+    },
+    {
+      display: "Migra",
+      body: "Manrope",
+      rationale: "Sharp editorial display paired with a rounded humanist body.",
+    },
+    {
+      display: "GT Sectra",
+      body: "Inter",
+      rationale: "Calligraphic warmth with a neutral, ubiquitous body.",
+    },
+  ],
+  [
+    {
+      display: "PP Editorial Old",
+      body: "PP Neue Montreal",
+      rationale: "Antique authority next to confident modernism.",
+    },
+    {
+      display: "Söhne Breit",
+      body: "Söhne",
+      rationale: "Wide-set display sibling against its workhorse counterpart.",
+    },
+    {
+      display: "Reckless",
+      body: "Söhne Mono",
+      rationale: "Sculpted serif energy with a technical monospaced body.",
+    },
+  ],
+  [
+    {
+      display: "Cormorant Garamond",
+      body: "Plus Jakarta Sans",
+      rationale: "Lyrical serif with an approachable contemporary sans.",
+    },
+    {
+      display: "JetBrains Mono",
+      body: "Inter",
+      rationale: "Technical mono display for an engineered, deliberate feel.",
+    },
+    {
+      display: "Bodoni Moda",
+      body: "DM Sans",
+      rationale: "Fashion-grade contrast paired with a quiet, modern body.",
+    },
+  ],
+];
+
+/* Deterministic-ish pick that rotates if the same note is sent repeatedly. */
+const pickSet = <T>(sets: T[][], note?: string): T[] => {
+  if (!sets.length) return [];
+  if (!note) return sets[Math.floor(Math.random() * sets.length)];
+  // Hash the note into an index so the same refinement returns the same set
+  // (within a process), and different notes vary.
+  let h = 0;
+  for (let i = 0; i < note.length; i++) {
+    h = (h * 31 + note.charCodeAt(i)) | 0;
+  }
+  return sets[Math.abs(h) % sets.length];
+};
+
 export const mockBrandSuggestions = (b: BrandInput) => ({
   palettes: PALETTES,
   typography: TYPES,
@@ -68,6 +191,24 @@ export const mockBrandPersona = (b: BrandInput) => ({
   name: "The Restless Cartographer",
   description: `Thirty-something. Last to leave the trail, first to skip the resort. Speaks plainly, writes shorter than expected, and would rather show you a place than tell you about it. Believes ${b.businessName} is a vehicle, not a destination — that what matters is the terrain you choose, not the badge you wear. Owns three jackets, all worn through at the cuffs.`,
   traits: ["restless", "plainspoken", "deliberate", "uncompromising", "warm"],
+});
+
+/** Mock for the "regenerate palettes" refinement path. */
+export const mockBrandPalettes = (b: BrandInput, note?: string) => {
+  const palettes = pickSet(ALT_PALETTE_SETS, note);
+  const noteFragment = note ? ` — interpreted as "${note.slice(0, 40)}"` : "";
+  return {
+    palettes,
+    conceptThumbnailPrompts: palettes.map(
+      (p) =>
+        `Cinematic editorial hero composition for ${b.businessName}, ${p.name} direction${noteFragment}: ${p.rationale.toLowerCase()}`
+    ),
+  };
+};
+
+/** Mock for the "regenerate typography" refinement path. */
+export const mockBrandTypography = (_b: BrandInput, note?: string) => ({
+  typography: pickSet(ALT_TYPE_SETS, note),
 });
 
 export const mockCampaignSuggestions = (c: CampaignInput) => ({
@@ -103,4 +244,22 @@ export const mockCampaignPersona = (c: CampaignInput) => ({
   name: "The Quiet Provocateur",
   description: `Knows exactly what they're doing. Speaks once, lands hard. Wears ${c.brandName} not as a flag but as a position — and dares you to read it. Has nothing to prove and everything to say. The kind of presence that changes the room without raising their voice.`,
   traits: ["composed", "incisive", "low-volume", "high-conviction", "magnetic"],
+});
+
+/** Mock for the "regenerate campaign palettes" refinement path. */
+export const mockCampaignPalettes = (c: CampaignInput, note?: string) => {
+  const palettes = pickSet(ALT_PALETTE_SETS, note);
+  const noteFragment = note ? ` — interpreted as "${note.slice(0, 40)}"` : "";
+  return {
+    palettes,
+    conceptThumbnailPrompts: palettes.map(
+      (p) =>
+        `Cinematic campaign hero for "${c.campaignName || c.brandName}", ${p.name} direction${noteFragment}: ${p.rationale.toLowerCase()}`
+    ),
+  };
+};
+
+/** Mock for the "regenerate campaign typography" refinement path. */
+export const mockCampaignTypography = (_c: CampaignInput, note?: string) => ({
+  typography: pickSet(ALT_TYPE_SETS, note),
 });
