@@ -19,7 +19,9 @@ export default function ArchetypePicker({ selected, onToggle }: Props) {
           return (
             <button
               key={a.key}
+              type="button"
               onClick={() => onToggle(a.key)}
+              aria-pressed={on}
               className={`chip text-left p-5 border transition-all ${
                 on
                   ? "border-spark bg-spark/5"
