@@ -8,6 +8,7 @@ import PalettePicker from "@/components/PalettePicker";
 import TypePicker from "@/components/TypePicker";
 import ChannelPicker from "@/components/ChannelPicker";
 import LanguagePicker from "@/components/LanguagePicker";
+import RefineBar from "@/components/RefineBar";
 import { useBRND } from "@/lib/store";
 import { archetypeByKey } from "@/lib/archetypes";
 import type {
@@ -41,6 +42,16 @@ export default function CampaignFlow() {
   );
   const [selectedType, setSelectedType] = useState<TypePairing | null>(null);
 
+  // ---------- Refinement state (steps 6 & 7) ----------
+  const [paletteNote, setPaletteNote] = useState("");
+  const [paletteRegenBusy, setPaletteRegenBusy] = useState(false);
+  const [paletteRegenError, setPaletteRegenError] = useState<string | null>(
+    null
+  );
+  const [typeNote, setTypeNote] = useState("");
+  const [typeRegenBusy, setTypeRegenBusy] = useState(false);
+  const [typeRegenError, setTypeRegenError] = useState<string | null>(null);
+
   const {
     campaign,
     setCampaign,
@@ -72,11 +83,13 @@ export default function CampaignFlow() {
     }
   };
 
-  // Kick off concept thumbnails
+  // Kick off concept thumbnails. Stale-result guarded so a re-generation
+  // mid-flight doesn't paint old thumbnails onto new palettes.
   useEffect(() => {
     if (!suggestions || !suggestions.conceptThumbnailPrompts) return;
     if (suggestions.palettes.every((p) => p.conceptImageDataUrl)) return;
 
+    const expectedKey = suggestions.conceptThumbnailPrompts.join("|");
     setThumbnailsLoading(true);
     const prompts = suggestions.conceptThumbnailPrompts.slice(0, 3);
 
@@ -94,6 +107,9 @@ export default function CampaignFlow() {
       .then((results) => {
         setSuggestions((prev) => {
           if (!prev) return prev;
+          if (prev.conceptThumbnailPrompts.join("|") !== expectedKey) {
+            return prev;
+          }
           return {
             ...prev,
             palettes: prev.palettes.map((p, i) => ({
@@ -107,6 +123,104 @@ export default function CampaignFlow() {
       .finally(() => setThumbnailsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestions?.conceptThumbnailPrompts?.join("|")]);
+
+  // ---------- Regenerate campaign directions (step 6) ----------
+  const regeneratePalettes = async () => {
+    if (paletteRegenBusy) return;
+    setPaletteRegenBusy(true);
+    setPaletteRegenError(null);
+    try {
+      const res = await fetch("/api/reason", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "campaign-palettes",
+          input: campaign,
+          note: paletteNote.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+      const json = (await res.json()) as {
+        data?: {
+          palettes: ColorPalette[];
+          conceptThumbnailPrompts: string[];
+        };
+        error?: string;
+      };
+      if (json.error || !json.data?.palettes?.length) {
+        throw new Error(json.error || "No palettes returned");
+      }
+      const { palettes, conceptThumbnailPrompts } = json.data;
+      const fresh = palettes.map((p) => ({
+        ...p,
+        conceptImageDataUrl: undefined,
+      }));
+      setSuggestions((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          palettes: fresh,
+          conceptThumbnailPrompts:
+            conceptThumbnailPrompts && conceptThumbnailPrompts.length
+              ? conceptThumbnailPrompts
+              : prev.conceptThumbnailPrompts,
+        };
+      });
+      setSelectedPalette(fresh[0] ?? null);
+    } catch (e) {
+      setPaletteRegenError(
+        e instanceof Error
+          ? `Couldn't regenerate directions — ${e.message}`
+          : "Couldn't regenerate directions"
+      );
+    } finally {
+      setPaletteRegenBusy(false);
+    }
+  };
+
+  // ---------- Regenerate campaign typography (step 7) ----------
+  const regenerateTypography = async () => {
+    if (typeRegenBusy) return;
+    setTypeRegenBusy(true);
+    setTypeRegenError(null);
+    try {
+      const res = await fetch("/api/reason", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "campaign-typography",
+          input: campaign,
+          note: typeNote.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+      const json = (await res.json()) as {
+        data?: { typography: TypePairing[] };
+        error?: string;
+      };
+      if (json.error || !json.data?.typography?.length) {
+        throw new Error(json.error || "No typography returned");
+      }
+      const { typography } = json.data;
+      setSuggestions((prev) => {
+        if (!prev) return prev;
+        return { ...prev, typography };
+      });
+      setSelectedType(typography[0] ?? null);
+    } catch (e) {
+      setTypeRegenError(
+        e instanceof Error
+          ? `Couldn't regenerate typography — ${e.message}`
+          : "Couldn't regenerate typography"
+      );
+    } finally {
+      setTypeRegenBusy(false);
+    }
+  };
 
   const finalize = async () => {
     if (!selectedPalette || !selectedType || !suggestions) return;
@@ -415,7 +529,7 @@ export default function CampaignFlow() {
     );
   }
 
-  // ---------- step 6 — palette with concept thumbnails ----------
+  // ---------- step 6 — palette with concept thumbnails (with refinement) ----------
   if (step === 6) {
     return (
       <StepShell
@@ -432,20 +546,33 @@ export default function CampaignFlow() {
         }
         subtitle={
           suggestions
-            ? "Each direction has a concept thumbnail so you see the mood before committing."
+            ? "Each direction has a concept thumbnail so you see the mood before committing. Not quite right? Refine below."
             : "Generating directions…"
         }
-        nextDisabled={!selectedPalette}
+        nextDisabled={!selectedPalette || paletteRegenBusy}
         onNext={next}
         onBack={back}
       >
         {suggestions ? (
-          <PalettePicker
-            options={suggestions.palettes}
-            selected={selectedPalette ?? undefined}
-            onSelect={setSelectedPalette}
-            thumbnailsLoading={thumbnailsLoading}
-          />
+          <>
+            <PalettePicker
+              options={suggestions.palettes}
+              selected={selectedPalette ?? undefined}
+              onSelect={setSelectedPalette}
+              thumbnailsLoading={thumbnailsLoading || paletteRegenBusy}
+            />
+            <RefineBar
+              label="Not quite right? Steer the directions"
+              placeholder='e.g. "darker, more cinematic. Less corporate." Or: "warmer, sun-bleached, southwestern."'
+              value={paletteNote}
+              onChange={setPaletteNote}
+              onSubmit={regeneratePalettes}
+              busy={paletteRegenBusy}
+              error={paletteRegenError}
+              ctaLabel="Regenerate directions"
+              hint="⌘/Ctrl + Enter to submit · regenerates all three directions and their thumbnails"
+            />
+          </>
         ) : (
           <div className="text-ash font-mono text-sm">Loading…</div>
         )}
@@ -453,7 +580,7 @@ export default function CampaignFlow() {
     );
   }
 
-  // ---------- step 7 — typography ----------
+  // ---------- step 7 — typography (with refinement) ----------
   if (step === 7) {
     return (
       <StepShell
@@ -468,17 +595,30 @@ export default function CampaignFlow() {
             <span className="italic text-spark">letters.</span>
           </>
         }
-        subtitle="Display + body. Currently-available Google Fonts only."
-        nextDisabled={!selectedType}
+        subtitle="Display + body. Currently-available Google Fonts only. Refine below if these don't fit."
+        nextDisabled={!selectedType || typeRegenBusy}
         onNext={next}
         onBack={back}
       >
         {suggestions ? (
-          <TypePicker
-            options={suggestions.typography}
-            selected={selectedType ?? undefined}
-            onSelect={setSelectedType}
-          />
+          <>
+            <TypePicker
+              options={suggestions.typography}
+              selected={selectedType ?? undefined}
+              onSelect={setSelectedType}
+            />
+            <RefineBar
+              label="Want different type? Steer the pairings"
+              placeholder='e.g. "more editorial serif feel, magazine-style." Or: "cleaner geometric sans, no serifs anywhere."'
+              value={typeNote}
+              onChange={setTypeNote}
+              onSubmit={regenerateTypography}
+              busy={typeRegenBusy}
+              error={typeRegenError}
+              ctaLabel="Regenerate typography"
+              hint="⌘/Ctrl + Enter to submit · returns three fresh pairings"
+            />
+          </>
         ) : (
           <div className="text-ash font-mono text-sm">Loading…</div>
         )}
