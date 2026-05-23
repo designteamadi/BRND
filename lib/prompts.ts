@@ -81,6 +81,74 @@ Return JSON only:
 }
 `.trim();
 
+/**
+ * Refinement prompt — regenerate ONLY the three brand creative directions
+ * (palettes + concept thumbnail prompts), based on the user's free-form note.
+ * Keeps the rest of the brand suggestion bundle (taglines, story, typography,
+ * mockup prompts) untouched on the client side.
+ */
+export const brandPalettesRefinePrompt = (b: BrandInput, note?: string) => `
+You are a senior brand strategist. Propose three FRESH alternative creative directions for the brand below — visually distinct from each other and from any directions previously seen. Each direction is a coherent pairing of a color palette and a concept thumbnail prompt.
+
+Business name: ${b.businessName}
+Industry: ${b.industry}
+Description: ${b.description}
+Target audience: ${b.targetAudience}
+Mission: ${b.mission}
+Archetypes:
+${archetypeBlock(b.archetypes)}
+Tone keywords: ${b.toneKeywords.join(", ")}
+${
+  note
+    ? `\nUSER REFINEMENT NOTE (this is the most important signal — let it steer your choices, even if it conflicts with the tone keywords above):\n"""\n${note}\n"""\n`
+    : ""
+}
+${langClause(b.outputLanguage)}
+
+Return JSON only, no commentary:
+{
+  "palettes": [
+    { "name": "string (max 3 words, in ${languageName(b.outputLanguage)})", "hexes": ["#RRGGBB","#RRGGBB","#RRGGBB","#RRGGBB"], "rationale": "one sentence — explain how this direction reflects the user's note." }
+  ],
+  "conceptThumbnailPrompts": [
+    "one concise photographic prompt for palette 1 — a hero composition that captures the mood and reflects the user's note.",
+    "same for palette 2",
+    "same for palette 3"
+  ]
+}
+
+Provide exactly 3 palettes and 3 concept thumbnail prompts (one per palette, matching index order). Photographic prompts only — include lighting, framing, surface, and reference the brand name visually where natural.
+`.trim();
+
+/**
+ * Refinement prompt — regenerate ONLY the three brand typography pairings,
+ * based on the user's free-form note. Everything else stays put.
+ */
+export const brandTypographyRefinePrompt = (b: BrandInput, note?: string) => `
+You are a senior typographer. Propose three FRESH alternative typography pairings (display + body) for the brand below — distinct from each other and from any pairings previously seen.
+
+Business name: ${b.businessName}
+Industry: ${b.industry}
+Description: ${b.description}
+Archetypes:
+${archetypeBlock(b.archetypes)}
+Tone keywords: ${b.toneKeywords.join(", ")}
+${
+  note
+    ? `\nUSER REFINEMENT NOTE (this is the most important signal — let it steer your choices):\n"""\n${note}\n"""\n`
+    : ""
+}
+
+Return JSON only, no commentary:
+{
+  "typography": [
+    { "display": "Font Name", "body": "Font Name", "rationale": "one sentence — explain how this pairing reflects the brand and the user's note." }
+  ]
+}
+
+Provide exactly 3 typography pairings. Use only real, currently-available Google Fonts. Keep all font names in English regardless of brand language.
+`.trim();
+
 export const campaignSuggestionsPrompt = (c: CampaignInput) => `
 You are a senior campaign creative director. Given the campaign brief below, propose three creative directions.
 
@@ -152,6 +220,80 @@ Return JSON only:
   "description": "60-90 word character portrait, present tense, in the campaign's voice",
   "traits": ["five short trait words or phrases"]
 }
+`.trim();
+
+/**
+ * Refinement prompt — regenerate ONLY the three campaign creative directions
+ * (palettes + concept thumbnail prompts), based on the user's free-form note.
+ * Keeps headlines, CTA, channel ideas, typography, and mockup prompts untouched.
+ */
+export const campaignPalettesRefinePrompt = (
+  c: CampaignInput,
+  note?: string
+) => `
+You are a senior campaign creative director. Propose three FRESH alternative creative directions for the campaign below — visually distinct from each other and from any directions previously seen. Each direction is a coherent pairing of a color palette and a concept thumbnail prompt.
+
+Brand: ${c.brandName}
+Brand description: ${c.brandDescription}
+Campaign: ${c.campaignName}
+Purpose: ${c.campaignPurpose}
+Story / message: ${c.campaignStory}
+Target market: ${c.targetMarket}
+Archetypes:
+${archetypeBlock(c.archetypes)}
+Tone keywords: ${c.toneKeywords.join(", ")}
+${
+  note
+    ? `\nUSER REFINEMENT NOTE (this is the most important signal — let it steer your choices, even if it conflicts with the tone keywords above):\n"""\n${note}\n"""\n`
+    : ""
+}
+${langClause(c.outputLanguage)}
+
+Return JSON only, no commentary:
+{
+  "palettes": [
+    { "name": "string (max 3 words, in ${languageName(c.outputLanguage)})", "hexes": ["#RRGGBB","#RRGGBB","#RRGGBB","#RRGGBB"], "rationale": "one sentence — explain how this direction reflects the campaign and the user's note." }
+  ],
+  "conceptThumbnailPrompts": [
+    "one concise photographic prompt for palette 1 — a campaign hero composition that captures the mood and reflects the user's note.",
+    "same for palette 2",
+    "same for palette 3"
+  ]
+}
+
+Provide exactly 3 palettes and 3 concept thumbnail prompts (one per palette, matching index order). Photographic prompts only — include lighting, framing, subject, and reference the campaign message visually.
+`.trim();
+
+/**
+ * Refinement prompt — regenerate ONLY the three campaign typography pairings,
+ * based on the user's free-form note.
+ */
+export const campaignTypographyRefinePrompt = (
+  c: CampaignInput,
+  note?: string
+) => `
+You are a senior typographer. Propose three FRESH alternative typography pairings (display + body) for the campaign below — distinct from each other and from any pairings previously seen.
+
+Brand: ${c.brandName}
+Campaign: ${c.campaignName}
+Purpose: ${c.campaignPurpose}
+Archetypes:
+${archetypeBlock(c.archetypes)}
+Tone keywords: ${c.toneKeywords.join(", ")}
+${
+  note
+    ? `\nUSER REFINEMENT NOTE (this is the most important signal — let it steer your choices):\n"""\n${note}\n"""\n`
+    : ""
+}
+
+Return JSON only, no commentary:
+{
+  "typography": [
+    { "display": "Font Name", "body": "Font Name", "rationale": "one sentence — explain how this pairing reflects the campaign and the user's note." }
+  ]
+}
+
+Provide exactly 3 typography pairings. Use only real, currently-available Google Fonts. Keep all font names in English regardless of campaign language.
 `.trim();
 
 export const logoImagePrompt = (b: BrandInput) => {
