@@ -22,7 +22,9 @@ export default function PalettePicker({
         return (
           <button
             key={idx}
+            type="button"
             onClick={() => onSelect(p)}
+            aria-pressed={on}
             className={`text-left border transition-all overflow-hidden ${
               on ? "border-spark" : "border-steel hover:border-ash"
             }`}
