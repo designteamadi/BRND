@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import StepShell from "@/components/StepShell";
 import ArchetypePicker from "@/components/ArchetypePicker";
@@ -41,6 +41,10 @@ export default function BrandFlow() {
   );
   const [selectedType, setSelectedType] = useState<TypePairing | null>(null);
 
+  // User-visible error from a failing /api/reason call. Cleared at the
+  // start of each new fetch. Surfaced inline on the step that triggered it.
+  const [genError, setGenError] = useState<string | null>(null);
+
   // ---------- Refinement state (steps 6 & 7) ----------
   const [paletteNote, setPaletteNote] = useState("");
   const [paletteRegenBusy, setPaletteRegenBusy] = useState(false);
@@ -50,6 +54,13 @@ export default function BrandFlow() {
   const [typeNote, setTypeNote] = useState("");
   const [typeRegenBusy, setTypeRegenBusy] = useState(false);
   const [typeRegenError, setTypeRegenError] = useState<string | null>(null);
+
+  // Monotonically-increasing counter used to detect stale async operations.
+  // Every fetchSuggestions / regeneratePalettes / regenerateTypography
+  // call increments this and captures its sequence number. When the call
+  // returns, it bails if the counter has moved on (meaning a newer op has
+  // started and the response would clobber fresh state).
+  const opSeqRef = useRef(0);
 
   const {
     brand,
@@ -65,27 +76,52 @@ export default function BrandFlow() {
   const next = () => setStep((s) => Math.min(TOTAL, s + 1));
   const back = () => setStep((s) => Math.max(1, s - 1));
 
-  // Fetch text reasoning on the way into step 6 (palette)
-  const fetchSuggestions = async () => {
+  // Fetch the initial creative suggestions on the way into step 6.
+  // Returns true on success so the caller can decide whether to advance.
+  const fetchSuggestions = async (): Promise<boolean> => {
+    const seq = ++opSeqRef.current;
     setBusy(true);
+    setGenError(null);
     try {
       const res = await fetch("/api/reason", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "brand-suggestions", input: brand }),
       });
-      const { data } = (await res.json()) as { data: Suggestions };
-      setSuggestions(data);
-      setSelectedPalette(data.palettes?.[0] ?? null);
-      setSelectedType(data.typography?.[0] ?? null);
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const json = (await res.json()) as {
+        data?: Suggestions;
+        error?: string;
+      };
+      // If a newer op has started while we waited, drop this result.
+      if (seq !== opSeqRef.current) return false;
+      if (json.error) throw new Error(json.error);
+      if (
+        !json.data?.palettes?.length ||
+        !json.data?.typography?.length
+      ) {
+        throw new Error("Incomplete suggestions returned");
+      }
+      setSuggestions(json.data);
+      setSelectedPalette(json.data.palettes[0] ?? null);
+      setSelectedType(json.data.typography[0] ?? null);
+      return true;
+    } catch (e) {
+      if (seq !== opSeqRef.current) return false;
+      setGenError(
+        e instanceof Error
+          ? `Couldn't generate suggestions — ${e.message}`
+          : "Couldn't generate suggestions"
+      );
+      return false;
     } finally {
-      setBusy(false);
+      if (seq === opSeqRef.current) setBusy(false);
     }
   };
 
-  // Once suggestions land, kick off concept thumbnail generation in parallel.
-  // We also guard against stale results: if the user regenerates palettes
-  // while a previous batch is in flight, the stale batch is dropped.
+  // Concept-thumbnail generation. Stale-result guarded both by the
+  // expectedKey check (prompts changed mid-flight) and by the fact that
+  // setSuggestions(prev => ...) reads the latest state synchronously.
   useEffect(() => {
     if (!suggestions || !suggestions.conceptThumbnailPrompts) return;
     if (suggestions.palettes.every((p) => p.conceptImageDataUrl)) return;
@@ -108,7 +144,6 @@ export default function BrandFlow() {
       .then((results) => {
         setSuggestions((prev) => {
           if (!prev) return prev;
-          // Drop stale results from a previous regeneration
           if (prev.conceptThumbnailPrompts.join("|") !== expectedKey) {
             return prev;
           }
@@ -129,6 +164,7 @@ export default function BrandFlow() {
   // ---------- Regenerate palettes & directions (step 6) ----------
   const regeneratePalettes = async () => {
     if (paletteRegenBusy) return;
+    const seq = ++opSeqRef.current;
     setPaletteRegenBusy(true);
     setPaletteRegenError(null);
     try {
@@ -141,16 +177,15 @@ export default function BrandFlow() {
           note: paletteNote.trim() || undefined,
         }),
       });
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const json = (await res.json()) as {
         data?: {
           palettes: ColorPalette[];
-          conceptThumbnailPrompts: string[];
+          conceptThumbnailPrompts?: string[];
         };
         error?: string;
       };
+      if (seq !== opSeqRef.current) return;
       if (json.error || !json.data?.palettes?.length) {
         throw new Error(json.error || "No palettes returned");
       }
@@ -161,32 +196,45 @@ export default function BrandFlow() {
         ...p,
         conceptImageDataUrl: undefined,
       }));
+      // If Gemini omitted conceptThumbnailPrompts (or returned a wrong-length
+      // array), synthesize fallback prompts from the new palette names. This
+      // GUARANTEES the thumbnail useEffect's dependency changes so new
+      // thumbnails are fetched — without this, the new palettes would show
+      // "preview unavailable" forever.
+      const safePrompts =
+        conceptThumbnailPrompts &&
+        conceptThumbnailPrompts.length === fresh.length
+          ? conceptThumbnailPrompts
+          : fresh.map(
+              (p) =>
+                `Cinematic editorial hero composition representing ${brand.businessName} in the ${p.name} direction — ${p.rationale}`
+            );
       setSuggestions((prev) => {
         if (!prev) return prev;
+        if (seq !== opSeqRef.current) return prev;
         return {
           ...prev,
           palettes: fresh,
-          conceptThumbnailPrompts:
-            conceptThumbnailPrompts && conceptThumbnailPrompts.length
-              ? conceptThumbnailPrompts
-              : prev.conceptThumbnailPrompts,
+          conceptThumbnailPrompts: safePrompts,
         };
       });
       setSelectedPalette(fresh[0] ?? null);
     } catch (e) {
+      if (seq !== opSeqRef.current) return;
       setPaletteRegenError(
         e instanceof Error
           ? `Couldn't regenerate directions — ${e.message}`
           : "Couldn't regenerate directions"
       );
     } finally {
-      setPaletteRegenBusy(false);
+      if (seq === opSeqRef.current) setPaletteRegenBusy(false);
     }
   };
 
   // ---------- Regenerate typography (step 7) ----------
   const regenerateTypography = async () => {
     if (typeRegenBusy) return;
+    const seq = ++opSeqRef.current;
     setTypeRegenBusy(true);
     setTypeRegenError(null);
     try {
@@ -199,36 +247,40 @@ export default function BrandFlow() {
           note: typeNote.trim() || undefined,
         }),
       });
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const json = (await res.json()) as {
         data?: { typography: TypePairing[] };
         error?: string;
       };
+      if (seq !== opSeqRef.current) return;
       if (json.error || !json.data?.typography?.length) {
         throw new Error(json.error || "No typography returned");
       }
       const { typography } = json.data;
       setSuggestions((prev) => {
         if (!prev) return prev;
+        if (seq !== opSeqRef.current) return prev;
         return { ...prev, typography };
       });
       setSelectedType(typography[0] ?? null);
     } catch (e) {
+      if (seq !== opSeqRef.current) return;
       setTypeRegenError(
         e instanceof Error
           ? `Couldn't regenerate typography — ${e.message}`
           : "Couldn't regenerate typography"
       );
     } finally {
-      setTypeRegenBusy(false);
+      if (seq === opSeqRef.current) setTypeRegenBusy(false);
     }
   };
 
+  // Generate the persona, logo, and mockups, then go to /result.
+  // Surfaces failures inline instead of silently swallowing them.
   const finalize = async () => {
     if (!selectedPalette || !selectedType || !suggestions) return;
     setBusy(true);
+    setGenError(null);
     setMode("brand");
     try {
       // 1. Persona
@@ -241,8 +293,17 @@ export default function BrandFlow() {
           palette: selectedPalette,
         }),
       });
-      const personaJson = await personaRes.json();
-      const persona = personaJson.data as Persona;
+      if (!personaRes.ok) {
+        throw new Error(`Persona service returned ${personaRes.status}`);
+      }
+      const personaJson = (await personaRes.json()) as {
+        data?: Persona;
+        error?: string;
+      };
+      if (personaJson.error || !personaJson.data?.name) {
+        throw new Error(personaJson.error || "Couldn't generate persona");
+      }
+      const persona = personaJson.data;
 
       // 2. Logo
       const logoPrompt = `Studio brand logo for "${brand.businessName}". Style: ${brand.logoStyle}. ${brand.logoPrompt}. Clean, modern, on a plain background, suitable as a brand mark. Premium feel.`;
@@ -267,7 +328,9 @@ export default function BrandFlow() {
               aspectRatio: i === 0 ? "9:16" : "1:1",
               inputImages: logoForComposite ? [logoForComposite] : undefined,
             }),
-          }).then((r) => r.json())
+          })
+            .then((r) => r.json())
+            .catch(() => ({ dataUrl: undefined }))
         )
       );
 
@@ -288,6 +351,12 @@ export default function BrandFlow() {
       };
       setGeneratedBrand(generated);
       router.push("/result");
+    } catch (e) {
+      setGenError(
+        e instanceof Error
+          ? `Couldn't finish generating — ${e.message}`
+          : "Couldn't finish generating"
+      );
     } finally {
       setBusy(false);
     }
@@ -311,7 +380,10 @@ export default function BrandFlow() {
         subtitle="Taglines, headlines, story, persona — everything written, generated in your language."
         onNext={next}
       >
-        <LanguagePicker value={brand.outputLanguage} onChange={setBrandLanguage} />
+        <LanguagePicker
+          value={brand.outputLanguage}
+          onChange={setBrandLanguage}
+        />
       </StepShell>
     );
   }
@@ -477,8 +549,11 @@ export default function BrandFlow() {
         subtitle="Pick a logo type, then describe the feeling. Nano Banana takes it from there."
         nextDisabled={!valid}
         onNext={async () => {
-          await fetchSuggestions();
-          next();
+          const ok = await fetchSuggestions();
+          if (ok) next();
+          // On failure, genError state is set and surfaced below. The
+          // user stays on step 5 so they can retry by clicking Continue
+          // again (or adjust their inputs).
         }}
         onBack={back}
         busy={busy}
@@ -499,6 +574,19 @@ export default function BrandFlow() {
               rows={3}
             />
           </div>
+          {genError && (
+            <div
+              role="alert"
+              className="border border-ember/40 bg-ember/5 p-4"
+            >
+              <p className="font-mono text-xs text-ember tracking-wide">
+                {genError}
+              </p>
+              <p className="font-mono text-[10px] text-ash mt-2">
+                Click Continue to try again.
+              </p>
+            </div>
+          )}
         </div>
       </StepShell>
     );
@@ -526,7 +614,7 @@ export default function BrandFlow() {
         }
         nextDisabled={!selectedPalette || paletteRegenBusy}
         onNext={next}
-        onBack={back}
+        onBack={paletteRegenBusy ? undefined : back}
       >
         {suggestions ? (
           <>
@@ -573,7 +661,7 @@ export default function BrandFlow() {
         subtitle="Display + body. Currently-available Google Fonts only. Refine below if these don't fit."
         nextDisabled={!selectedType || typeRegenBusy}
         onNext={next}
-        onBack={back}
+        onBack={typeRegenBusy ? undefined : back}
       >
         {suggestions ? (
           <>
@@ -650,6 +738,19 @@ export default function BrandFlow() {
           }
         />
       </div>
+      {genError && (
+        <div
+          role="alert"
+          className="mt-10 max-w-4xl border border-ember/40 bg-ember/5 p-4"
+        >
+          <p className="font-mono text-xs text-ember tracking-wide">
+            {genError}
+          </p>
+          <p className="font-mono text-[10px] text-ash mt-2">
+            Click Generate bento again to retry.
+          </p>
+        </div>
+      )}
     </StepShell>
   );
 }
