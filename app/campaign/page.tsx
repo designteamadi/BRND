@@ -782,7 +782,7 @@ export default function CampaignFlow() {
       }
       subtitle={
         campaign.logoDataUrl
-          ? "We'll composite your logo onto every generated visual using Nano Banana's image editing mode."
+          ? "We'll composite your logo onto every generated visual using Nano Banana 2's image editing mode."
           : "Heads up — no logo uploaded. Visuals will be generated without your mark."
       }
       onNext={finalize}
