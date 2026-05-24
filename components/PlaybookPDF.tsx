@@ -6,11 +6,8 @@ import {
   View,
   StyleSheet,
   Image,
-  Font,
   Svg,
   Polygon,
-  Rect,
-  Circle,
 } from "@react-pdf/renderer";
 import type {
   GeneratedBrand,
@@ -27,38 +24,32 @@ import { archetypeByKey } from "@/lib/archetypes";
 // ============================================================
 // Fonts
 // ============================================================
-Font.register({
-  family: "Instrument Serif",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/instrumentserif/v4/jizDREVItHgc8qDIbSTKq4XKVjGV1bm-jvgjhA.ttf",
-      fontWeight: 400,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/instrumentserif/v4/jizGREVItHgc8qDIbSTKq4XKVjPdL1xkv4HQjBg.ttf",
-      fontWeight: 400,
-      fontStyle: "italic",
-    },
-  ],
-});
+// IMPORTANT: We deliberately use the PDF spec's 14 built-in "core fonts"
+// (Helvetica, Times-Roman, Times-Italic, Times-Bold, etc.) instead of
+// registering Google Fonts via Font.register().
+//
+// Why: the previous gstatic.com URLs rotted ("Failed to fetch font … 404")
+// because Google rotates the hash-suffixed file paths whenever they bump
+// a font version. The built-in core fonts are baked into every PDF reader
+// since 1993 — they cannot 404, cannot rot, work offline, and embed at
+// zero bundle cost. The visual tradeoff (Times-Italic vs. Instrument Serif)
+// is worth the ironclad reliability for the downloadable deliverable.
+//
+// The on-screen Bento still uses the user's chosen Google fonts (those
+// fetch from fonts.googleapis.com in the browser, which works fine).
 
-Font.register({
-  family: "Inter",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.ttf",
-      fontWeight: 400,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIa0ZL7.ttf",
-      fontWeight: 500,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIa3ZL7.ttf",
-      fontWeight: 700,
-    },
-  ],
-});
+const FONTS = {
+  // Display: serif italic for the editorial brand-name-with-period moment
+  displayItalic: "Times-Italic",
+  display: "Times-Roman",
+  displayBold: "Times-Bold",
+  // Body: clean sans
+  body: "Helvetica",
+  bodyMedium: "Helvetica-Bold", // no medium in built-ins; bold is the closest
+  bodyBold: "Helvetica-Bold",
+  // Mono / caption
+  mono: "Helvetica",
+};
 
 // ============================================================
 // Tokens
@@ -82,21 +73,21 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: COLORS.noir,
     color: COLORS.bone,
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     padding: 56,
     fontSize: 10,
   },
   pageBone: {
     backgroundColor: COLORS.bone,
     color: COLORS.noir,
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     padding: 56,
     fontSize: 10,
   },
   pageInk: {
     backgroundColor: COLORS.ink,
     color: COLORS.bone,
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     padding: 56,
     fontSize: 10,
   },
@@ -132,14 +123,13 @@ const styles = StyleSheet.create({
   },
   eyebrowAccent: { color: COLORS.spark },
   hero: {
-    fontFamily: "Instrument Serif",
+    fontFamily: "Times-Roman",
     fontSize: 84,
     lineHeight: 0.92,
     marginBottom: 14,
   },
   heroItalic: {
-    fontFamily: "Instrument Serif",
-    fontStyle: "italic",
+    fontFamily: "Times-Italic",
     color: COLORS.spark,
   },
   sectionLabel: {
@@ -150,7 +140,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: {
-    fontFamily: "Instrument Serif",
+    fontFamily: "Times-Roman",
     fontSize: 42,
     lineHeight: 1,
     marginBottom: 8,
@@ -402,8 +392,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
         {props.tagline ? (
           <Text
             style={{
-              fontFamily: "Instrument Serif",
-              fontStyle: "italic",
+              fontFamily: "Times-Italic",
               fontSize: 30,
               marginTop: 22,
               color: COLORS.ash,
@@ -501,7 +490,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               </Text>
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 22,
                   flex: 1,
                   marginLeft: 16,
@@ -555,7 +544,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
             >
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 30,
                   color: contrastOn(
                     i === 0
@@ -574,7 +563,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
             <View style={{ flex: 1 }}>
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 26,
                   color: COLORS.bone,
                   marginBottom: 6,
@@ -600,7 +589,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
         </Text>
         <Text
           style={{
-            fontFamily: "Instrument Serif",
+            fontFamily: "Times-Roman",
             fontSize: 28,
             lineHeight: 1.2,
             color: COLORS.bone,
@@ -644,7 +633,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
         </Text>
         <Text
           style={{
-            fontFamily: "Instrument Serif",
+            fontFamily: "Times-Roman",
             fontSize: 16,
             lineHeight: 1.55,
             color: COLORS.bone,
@@ -823,7 +812,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
                 <Text
                   style={{
                     color: COLORS.noir,
-                    fontFamily: "Inter",
+                    fontFamily: "Helvetica",
                     fontWeight: 700,
                     fontSize: 18,
                   }}
@@ -835,7 +824,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
                 style={{
                   color: COLORS.bone,
                   fontSize: 12,
-                  fontFamily: "Inter",
+                  fontFamily: "Helvetica",
                   fontWeight: 500,
                   marginBottom: 4,
                 }}
@@ -891,7 +880,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
                 </Text>
                 <Text
                   style={{
-                    fontFamily: "Instrument Serif",
+                    fontFamily: "Times-Roman",
                     fontSize: 22,
                     color: text,
                   }}
@@ -961,7 +950,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
           >
             <Text
               style={{
-                fontFamily: "Instrument Serif",
+                fontFamily: "Times-Roman",
                 fontSize: 56,
                 color: contrastOn(c0),
               }}
@@ -989,7 +978,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
           >
             <Text
               style={{
-                fontFamily: "Instrument Serif",
+                fontFamily: "Times-Roman",
                 fontSize: 42,
                 color: contrastOn(c2),
               }}
@@ -1017,7 +1006,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
           >
             <Text
               style={{
-                fontFamily: "Instrument Serif",
+                fontFamily: "Times-Roman",
                 fontSize: 22,
                 color: contrastOn(c3),
               }}
@@ -1045,7 +1034,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
           >
             <Text
               style={{
-                fontFamily: "Instrument Serif",
+                fontFamily: "Times-Roman",
                 fontSize: 22,
                 color: contrastOn(c1),
               }}
@@ -1105,7 +1094,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               <Text style={styles.eyebrow}>display · {props.type.display}</Text>
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 130,
                   lineHeight: 0.92,
                   marginTop: 4,
@@ -1116,7 +1105,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               </Text>
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 36,
                   lineHeight: 1,
                   marginTop: 8,
@@ -1130,7 +1119,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               <Text style={styles.eyebrow}>body · {props.type.body}</Text>
               <Text
                 style={{
-                  fontFamily: "Inter",
+                  fontFamily: "Helvetica",
                   fontSize: 10.5,
                   lineHeight: 1.65,
                   marginTop: 4,
@@ -1146,7 +1135,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
                 <Text style={[styles.eyebrow, { marginBottom: 8 }]}>character set</Text>
                 <Text
                   style={{
-                    fontFamily: "Inter",
+                    fontFamily: "Helvetica",
                     fontSize: 9,
                     lineHeight: 1.5,
                     color: COLORS.ash,
@@ -1176,12 +1165,12 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
 
         <View style={{ marginTop: 18 }}>
           {[
-            { label: "H1 · Display", font: "Instrument Serif", size: 56, sample: props.name + "." },
-            { label: "H2 · Section", font: "Instrument Serif", size: 32, sample: "Section title here." },
-            { label: "H3 · Subsection", font: "Inter", size: 18, sample: "Subsection title", weight: 500 },
-            { label: "Body large", font: "Inter", size: 14, sample: "Lead paragraph or feature text.", weight: 400 },
-            { label: "Body", font: "Inter", size: 11, sample: "Regular paragraph copy at 11pt with 1.6 leading.", weight: 400 },
-            { label: "Caption / mono", font: "Inter", size: 9, sample: "EYEBROW · CAPTION · TABULAR LABEL", weight: 500 },
+            { label: "H1 · Display", font: "Times-Roman", size: 56, sample: props.name + "." },
+            { label: "H2 · Section", font: "Times-Roman", size: 32, sample: "Section title here." },
+            { label: "H3 · Subsection", font: "Helvetica", size: 18, sample: "Subsection title", weight: 500 },
+            { label: "Body large", font: "Helvetica", size: 14, sample: "Lead paragraph or feature text.", weight: 400 },
+            { label: "Body", font: "Helvetica", size: 11, sample: "Regular paragraph copy at 11pt with 1.6 leading.", weight: 400 },
+            { label: "Caption / mono", font: "Helvetica", size: 9, sample: "EYEBROW · CAPTION · TABULAR LABEL", weight: 500 },
           ].map((s, i) => (
             <View
               key={i}
@@ -1245,7 +1234,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
 
         <Text
           style={{
-            fontFamily: "Instrument Serif",
+            fontFamily: "Times-Roman",
             fontSize: 16,
             lineHeight: 1.55,
             color: COLORS.bone,
@@ -1318,7 +1307,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               <Text style={[styles.eyebrow, styles.eyebrowAccent]}>do</Text>
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 14,
                   lineHeight: 1.4,
                   color: COLORS.bone,
@@ -1339,7 +1328,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               <Text style={[styles.eyebrow, { color: COLORS.magenta }]}>don't</Text>
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 14,
                   lineHeight: 1.4,
                   color: COLORS.ash,
@@ -1431,7 +1420,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               marginTop: 12,
               letterSpacing: 0.4,
               fontStyle: "italic",
-              fontFamily: "Inter",
+              fontFamily: "Helvetica",
             }}
           >
             {i === 0
@@ -1497,8 +1486,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
         <View style={{ position: "absolute", bottom: 100, left: 56, right: 56 }}>
           <Text
             style={{
-              fontFamily: "Instrument Serif",
-              fontStyle: "italic",
+              fontFamily: "Times-Italic",
               fontSize: 28,
               color: COLORS.spark,
               textAlign: "center",
@@ -1703,7 +1691,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
               <Text style={{ fontSize: 8, letterSpacing: 2, color: COLORS.ash, width: 30 }}>
                 {num}
               </Text>
-              <Text style={{ fontFamily: "Instrument Serif", fontSize: 22, flex: 1, marginLeft: 16, color: COLORS.bone }}>
+              <Text style={{ fontFamily: "Times-Roman", fontSize: 22, flex: 1, marginLeft: 16, color: COLORS.bone }}>
                 {title}
               </Text>
             </View>
@@ -1732,7 +1720,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
         <Text style={styles.eyebrow}>story</Text>
         <Text
           style={{
-            fontFamily: "Instrument Serif",
+            fontFamily: "Times-Roman",
             fontSize: 18,
             lineHeight: 1.45,
             color: COLORS.bone,
@@ -1756,7 +1744,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
         </Text>
         <Text
           style={{
-            fontFamily: "Instrument Serif",
+            fontFamily: "Times-Roman",
             fontSize: 18,
             lineHeight: 1.5,
             color: COLORS.bone,
@@ -1776,7 +1764,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
         <Text style={styles.sectionTitle}>{props.persona.name}.</Text>
         <Text
           style={{
-            fontFamily: "Instrument Serif",
+            fontFamily: "Times-Roman",
             fontSize: 16,
             lineHeight: 1.55,
             color: COLORS.bone,
@@ -1842,7 +1830,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
               <Text style={[styles.eyebrow, styles.eyebrowAccent]}>do</Text>
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 14,
                   lineHeight: 1.4,
                   color: COLORS.bone,
@@ -1863,7 +1851,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
               <Text style={[styles.eyebrow, { color: COLORS.magenta }]}>don't</Text>
               <Text
                 style={{
-                  fontFamily: "Instrument Serif",
+                  fontFamily: "Times-Roman",
                   fontSize: 14,
                   lineHeight: 1.4,
                   color: COLORS.ash,
@@ -1911,7 +1899,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
             </Text>
             <Text
               style={{
-                fontFamily: "Instrument Serif",
+                fontFamily: "Times-Roman",
                 fontSize: i === 0 ? 36 : 24,
                 lineHeight: 1.1,
                 color: i === 0 ? COLORS.spark : COLORS.bone,
@@ -1947,7 +1935,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
         >
           <Text
             style={{
-              fontFamily: "Instrument Serif",
+              fontFamily: "Times-Roman",
               fontSize: 64,
               lineHeight: 1,
               color: contrastOn(c1),
@@ -2011,7 +1999,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
             <Text style={styles.eyebrow}>display · {props.type.display}</Text>
             <Text
               style={{
-                fontFamily: "Instrument Serif",
+                fontFamily: "Times-Roman",
                 fontSize: 110,
                 lineHeight: 0.92,
                 marginTop: 6,
@@ -2025,7 +2013,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
             <Text style={styles.eyebrow}>body · {props.type.body}</Text>
             <Text
               style={{
-                fontFamily: "Inter",
+                fontFamily: "Helvetica",
                 fontSize: 11,
                 lineHeight: 1.62,
                 marginTop: 8,
@@ -2083,7 +2071,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
               <View style={{ flex: 1 }}>
                 <Text
                   style={{
-                    fontFamily: "Inter",
+                    fontFamily: "Helvetica",
                     fontSize: 11,
                     lineHeight: 1.6,
                     color: COLORS.bone,
@@ -2150,8 +2138,7 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
         <View style={{ position: "absolute", bottom: 100, left: 56, right: 56 }}>
           <Text
             style={{
-              fontFamily: "Instrument Serif",
-              fontStyle: "italic",
+              fontFamily: "Times-Italic",
               fontSize: 28,
               color: COLORS.spark,
               textAlign: "center",
