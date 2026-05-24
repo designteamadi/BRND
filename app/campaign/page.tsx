@@ -323,23 +323,52 @@ export default function CampaignFlow() {
       const prompts = (suggestions.mockupPrompts || []).slice(0, 3);
       const userLogo = campaign.logoDataUrl;
 
-      const imgResults = await Promise.all(
-        prompts.map((p, i) =>
-          fetch("/api/image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt: userLogo
+      // Editorial campaign-book cover image — atmospheric, no text/letters.
+      const coverPrompt = `Editorial campaign book cover photograph for "${campaign.campaignName || campaign.brandName}", a campaign for ${campaign.brandName}.
+Campaign story: ${campaign.campaignStory || campaign.campaignPurpose || ""}
+Target audience: ${campaign.targetMarket || ""}
+Archetypes: ${campaign.archetypes.join(", ")}.
+Tone: ${campaign.toneKeywords.join(", ") || "honest, deliberate"}.
+Visual direction: ${selectedPalette.name} — ${selectedPalette.rationale || ""}.
+Color palette to evoke: ${selectedPalette.hexes.join(", ")}.
+
+Style: cinematic, museum-quality editorial photograph. Should feel like the hero spread on a $50 designer campaign manual. Sophisticated composition — atmospheric macro photography, abstract material textures, OR a single hero conceptual shot.
+Strictly NO text, NO logos, NO words, NO letters, NO type of any kind. Just atmospheric imagery.
+Avoid stock photo look. Texture, depth, strong point of view.
+Aspect ratio: 3:2 landscape.`;
+
+      const buildImageReq = (
+        prompt: string,
+        aspectRatio: string,
+        withLogo: boolean
+      ) =>
+        fetch("/api/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            aspectRatio,
+            inputImages: withLogo && userLogo ? [userLogo] : undefined,
+          }),
+        })
+          .then((r) => r.json())
+          .catch(() => ({ dataUrl: undefined }));
+
+      // Mockups + cover in parallel.
+      const [imgResults, coverResult] = await Promise.all([
+        Promise.all(
+          prompts.map((p, i) =>
+            buildImageReq(
+              userLogo
                 ? `${p}\n\nIMPORTANT: Apply the brand logo from the provided image naturally onto the visible product/surface/sign in this scene — preserve its proportions; match the lighting and perspective.`
                 : p,
-              aspectRatio: i === 0 ? "9:16" : "1:1",
-              inputImages: userLogo ? [userLogo] : undefined,
-            }),
-          })
-            .then((r) => r.json())
-            .catch(() => ({ dataUrl: undefined }))
-        )
-      );
+              i === 0 ? "9:16" : "1:1",
+              Boolean(userLogo)
+            )
+          )
+        ),
+        buildImageReq(coverPrompt, "3:2", false),
+      ]);
 
       const generated: GeneratedCampaign = {
         input: campaign,
@@ -354,12 +383,14 @@ export default function CampaignFlow() {
           suggestions.channelIdeas ?? ({} as Record<MediaChannel, string>),
         mockupPrompts: prompts,
         mockupImages: imgResults.map((r) => r?.dataUrl),
+        coverImageDataUrl: coverResult?.dataUrl,
       };
       setGeneratedCampaign(generated);
       // eslint-disable-next-line no-console
       console.log("[finalize:campaign] success → /result", {
         mockupCount: imgResults.filter((r) => r?.dataUrl).length,
         hasLogo: Boolean(userLogo),
+        hasCover: Boolean(coverResult?.dataUrl),
         usedSyntheticPersona: !validPersona,
       });
       router.push("/result");
