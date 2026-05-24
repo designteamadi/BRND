@@ -591,7 +591,7 @@ export default function BrandFlow() {
             <span className="italic text-spark">mark</span> look like?
           </>
         }
-        subtitle="Pick a logo type, then describe the feeling. Nano Banana takes it from there."
+        subtitle="Pick a logo type, then describe the feeling. Nano Banana 2 takes it from there."
         nextDisabled={!valid}
         onNext={async () => {
           const ok = await fetchSuggestions();
