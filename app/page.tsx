@@ -91,7 +91,7 @@ export default function Landing() {
             className="max-w-xl text-lg md:text-xl text-ash leading-relaxed mb-16"
           >
             A complete brand or a complete campaign — voice, visuals, persona,
-            applied mockups — reasoned by Gemini, rendered by Nano Banana.
+            applied mockups — reasoned by Gemini, rendered by Nano Banana 2.
             Built for makers who'd rather ship than slide-deck.
           </motion.div>
 
@@ -161,7 +161,7 @@ export default function Landing() {
               {
                 n: "02",
                 t: "Render",
-                b: "Nano Banana turns the mockup brief into photographic applied visuals — logo in context, product in the world, the brand seen, not described.",
+                b: "Nano Banana 2 turns the mockup brief into photographic applied visuals — logo in context, product in the world, the brand seen, not described.",
               },
               {
                 n: "03",
@@ -218,7 +218,7 @@ export default function Landing() {
               <br />
               Rendered by
               <br />
-              <span className="italic text-spark">Nano Banana</span>.
+              <span className="italic text-spark">Nano Banana 2</span>.
             </h2>
           </div>
           <div className="space-y-6 text-ash text-lg leading-relaxed">
