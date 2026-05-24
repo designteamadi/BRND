@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import StepShell from "@/components/StepShell";
 import ArchetypePicker from "@/components/ArchetypePicker";
@@ -41,6 +41,10 @@ export default function BrandFlow() {
   );
   const [selectedType, setSelectedType] = useState<TypePairing | null>(null);
 
+  // User-visible error from a failing /api/reason call. Cleared at the
+  // start of each new fetch. Surfaced inline on the step that triggered it.
+  const [genError, setGenError] = useState<string | null>(null);
+
   // ---------- Refinement state (steps 6 & 7) ----------
   const [paletteNote, setPaletteNote] = useState("");
   const [paletteRegenBusy, setPaletteRegenBusy] = useState(false);
@@ -50,6 +54,13 @@ export default function BrandFlow() {
   const [typeNote, setTypeNote] = useState("");
   const [typeRegenBusy, setTypeRegenBusy] = useState(false);
   const [typeRegenError, setTypeRegenError] = useState<string | null>(null);
+
+  // Monotonically-increasing counter used to detect stale async operations.
+  // Every fetchSuggestions / regeneratePalettes / regenerateTypography
+  // call increments this and captures its sequence number. When the call
+  // returns, it bails if the counter has moved on (meaning a newer op has
+  // started and the response would clobber fresh state).
+  const opSeqRef = useRef(0);
 
   const {
     brand,
@@ -65,27 +76,52 @@ export default function BrandFlow() {
   const next = () => setStep((s) => Math.min(TOTAL, s + 1));
   const back = () => setStep((s) => Math.max(1, s - 1));
 
-  // Fetch text reasoning on the way into step 6 (palette)
-  const fetchSuggestions = async () => {
+  // Fetch the initial creative suggestions on the way into step 6.
+  // Returns true on success so the caller can decide whether to advance.
+  const fetchSuggestions = async (): Promise<boolean> => {
+    const seq = ++opSeqRef.current;
     setBusy(true);
+    setGenError(null);
     try {
       const res = await fetch("/api/reason", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "brand-suggestions", input: brand }),
       });
-      const { data } = (await res.json()) as { data: Suggestions };
-      setSuggestions(data);
-      setSelectedPalette(data.palettes?.[0] ?? null);
-      setSelectedType(data.typography?.[0] ?? null);
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const json = (await res.json()) as {
+        data?: Suggestions;
+        error?: string;
+      };
+      // If a newer op has started while we waited, drop this result.
+      if (seq !== opSeqRef.current) return false;
+      if (json.error) throw new Error(json.error);
+      if (
+        !json.data?.palettes?.length ||
+        !json.data?.typography?.length
+      ) {
+        throw new Error("Incomplete suggestions returned");
+      }
+      setSuggestions(json.data);
+      setSelectedPalette(json.data.palettes[0] ?? null);
+      setSelectedType(json.data.typography[0] ?? null);
+      return true;
+    } catch (e) {
+      if (seq !== opSeqRef.current) return false;
+      setGenError(
+        e instanceof Error
+          ? `Couldn't generate suggestions — ${e.message}`
+          : "Couldn't generate suggestions"
+      );
+      return false;
     } finally {
-      setBusy(false);
+      if (seq === opSeqRef.current) setBusy(false);
     }
   };
 
-  // Once suggestions land, kick off concept thumbnail generation in parallel.
-  // We also guard against stale results: if the user regenerates palettes
-  // while a previous batch is in flight, the stale batch is dropped.
+  // Concept-thumbnail generation. Stale-result guarded both by the
+  // expectedKey check (prompts changed mid-flight) and by the fact that
+  // setSuggestions(prev => ...) reads the latest state synchronously.
   useEffect(() => {
     if (!suggestions || !suggestions.conceptThumbnailPrompts) return;
     if (suggestions.palettes.every((p) => p.conceptImageDataUrl)) return;
@@ -108,7 +144,6 @@ export default function BrandFlow() {
       .then((results) => {
         setSuggestions((prev) => {
           if (!prev) return prev;
-          // Drop stale results from a previous regeneration
           if (prev.conceptThumbnailPrompts.join("|") !== expectedKey) {
             return prev;
           }
@@ -129,6 +164,7 @@ export default function BrandFlow() {
   // ---------- Regenerate palettes & directions (step 6) ----------
   const regeneratePalettes = async () => {
     if (paletteRegenBusy) return;
+    const seq = ++opSeqRef.current;
     setPaletteRegenBusy(true);
     setPaletteRegenError(null);
     try {
@@ -141,16 +177,15 @@ export default function BrandFlow() {
           note: paletteNote.trim() || undefined,
         }),
       });
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const json = (await res.json()) as {
         data?: {
           palettes: ColorPalette[];
-          conceptThumbnailPrompts: string[];
+          conceptThumbnailPrompts?: string[];
         };
         error?: string;
       };
+      if (seq !== opSeqRef.current) return;
       if (json.error || !json.data?.palettes?.length) {
         throw new Error(json.error || "No palettes returned");
       }
@@ -161,32 +196,45 @@ export default function BrandFlow() {
         ...p,
         conceptImageDataUrl: undefined,
       }));
+      // If Gemini omitted conceptThumbnailPrompts (or returned a wrong-length
+      // array), synthesize fallback prompts from the new palette names. This
+      // GUARANTEES the thumbnail useEffect's dependency changes so new
+      // thumbnails are fetched — without this, the new palettes would show
+      // "preview unavailable" forever.
+      const safePrompts =
+        conceptThumbnailPrompts &&
+        conceptThumbnailPrompts.length === fresh.length
+          ? conceptThumbnailPrompts
+          : fresh.map(
+              (p) =>
+                `Cinematic editorial hero composition representing ${brand.businessName} in the ${p.name} direction — ${p.rationale}`
+            );
       setSuggestions((prev) => {
         if (!prev) return prev;
+        if (seq !== opSeqRef.current) return prev;
         return {
           ...prev,
           palettes: fresh,
-          conceptThumbnailPrompts:
-            conceptThumbnailPrompts && conceptThumbnailPrompts.length
-              ? conceptThumbnailPrompts
-              : prev.conceptThumbnailPrompts,
+          conceptThumbnailPrompts: safePrompts,
         };
       });
       setSelectedPalette(fresh[0] ?? null);
     } catch (e) {
+      if (seq !== opSeqRef.current) return;
       setPaletteRegenError(
         e instanceof Error
           ? `Couldn't regenerate directions — ${e.message}`
           : "Couldn't regenerate directions"
       );
     } finally {
-      setPaletteRegenBusy(false);
+      if (seq === opSeqRef.current) setPaletteRegenBusy(false);
     }
   };
 
   // ---------- Regenerate typography (step 7) ----------
   const regenerateTypography = async () => {
     if (typeRegenBusy) return;
+    const seq = ++opSeqRef.current;
     setTypeRegenBusy(true);
     setTypeRegenError(null);
     try {
@@ -199,37 +247,47 @@ export default function BrandFlow() {
           note: typeNote.trim() || undefined,
         }),
       });
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const json = (await res.json()) as {
         data?: { typography: TypePairing[] };
         error?: string;
       };
+      if (seq !== opSeqRef.current) return;
       if (json.error || !json.data?.typography?.length) {
         throw new Error(json.error || "No typography returned");
       }
       const { typography } = json.data;
       setSuggestions((prev) => {
         if (!prev) return prev;
+        if (seq !== opSeqRef.current) return prev;
         return { ...prev, typography };
       });
       setSelectedType(typography[0] ?? null);
     } catch (e) {
+      if (seq !== opSeqRef.current) return;
       setTypeRegenError(
         e instanceof Error
           ? `Couldn't regenerate typography — ${e.message}`
           : "Couldn't regenerate typography"
       );
     } finally {
-      setTypeRegenBusy(false);
+      if (seq === opSeqRef.current) setTypeRegenBusy(false);
     }
   };
 
+  // Generate the persona, logo, and mockups, then go to /result.
+  // Surfaces failures inline instead of silently swallowing them.
   const finalize = async () => {
     if (!selectedPalette || !selectedType || !suggestions) return;
     setBusy(true);
+    setGenError(null);
     setMode("brand");
+    // eslint-disable-next-line no-console
+    console.log("[finalize] start", {
+      businessName: brand.businessName,
+      palette: selectedPalette.name,
+      type: `${selectedType.display}/${selectedType.body}`,
+    });
     try {
       // 1. Persona
       const personaRes = await fetch("/api/reason", {
@@ -241,8 +299,48 @@ export default function BrandFlow() {
           palette: selectedPalette,
         }),
       });
-      const personaJson = await personaRes.json();
-      const persona = personaJson.data as Persona;
+      if (!personaRes.ok) {
+        throw new Error(`Persona service returned ${personaRes.status}`);
+      }
+      const personaJson = (await personaRes.json()) as {
+        data?: Partial<Persona>;
+        error?: string;
+      };
+      // Persona must have name + description + traits[] for the Bento to
+      // render without crashing. If ANY field is missing or malformed,
+      // synthesize a fallback from the brand inputs rather than throw —
+      // we'd rather ship an imperfect persona than fail to render the result.
+      const d = personaJson.data;
+      const validPersona =
+        d &&
+        typeof d.name === "string" &&
+        d.name.trim().length > 0 &&
+        typeof d.description === "string" &&
+        d.description.trim().length > 0 &&
+        Array.isArray(d.traits) &&
+        d.traits.length > 0 &&
+        d.traits.every((t) => typeof t === "string");
+      const persona: Persona = validPersona
+        ? (d as Persona)
+        : {
+            name: brand.businessName || "The Brand",
+            description:
+              brand.description ||
+              brand.mission ||
+              `A brand built around ${brand.toneKeywords.join(", ") || "honest craft"}.`,
+            traits:
+              brand.toneKeywords.length > 0
+                ? brand.toneKeywords.slice(0, 5)
+                : ["considered", "deliberate", "honest", "warm", "specific"],
+          };
+      if (!validPersona) {
+        // Visible in DevTools so the user can see why a synthetic was used.
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[finalize] persona response was malformed; using synthetic fallback",
+          { received: personaJson }
+        );
+      }
 
       // 2. Logo
       const logoPrompt = `Studio brand logo for "${brand.businessName}". Style: ${brand.logoStyle}. ${brand.logoPrompt}. Clean, modern, on a plain background, suitable as a brand mark. Premium feel.`;
@@ -252,24 +350,74 @@ export default function BrandFlow() {
         body: JSON.stringify({ prompt: logoPrompt, aspectRatio: "1:1" }),
       }).then((r) => r.json());
 
-      // 3. Mockups in parallel — with logo compositing once logo exists
+      // 3. Mockups + cover + don't examples — all run in parallel after logo.
+      // Total parallel image gens after logo: 3 mockups + 1 cover + 6 don'ts = 10.
+      // Nano Banana 2 handles these concurrently, so wall time is bounded by
+      // the slowest single call (~15-25s), not the sum.
       const mockupPrompts = (suggestions.mockupPrompts || []).slice(0, 3);
       const logoForComposite = logoRes?.dataUrl;
-      const imgResults = await Promise.all(
-        mockupPrompts.map((p, i) =>
-          fetch("/api/image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt: logoForComposite
+
+      // Editorial brand-book cover image — atmospheric, no text/letters.
+      const coverPrompt = `Editorial brand book cover photograph for "${brand.businessName}", a ${brand.industry || "modern"} brand.
+Brand essence: ${brand.description || brand.mission || "considered, deliberate, specific"}
+Archetypes: ${brand.archetypes.join(", ")}.
+Tone: ${brand.toneKeywords.join(", ") || "honest, deliberate"}.
+Visual direction: ${selectedPalette.name} — ${selectedPalette.rationale || ""}.
+Color palette to evoke: ${selectedPalette.hexes.join(", ")}.
+
+Style: cinematic, museum-quality editorial photograph. Should feel like the hero spread on a $50 designer brand-identity manual. Sophisticated composition — atmospheric macro photography, abstract material textures, OR a single hero conceptual shot.
+Strictly NO text, NO logos, NO words, NO letters, NO type of any kind. Just atmospheric imagery.
+Avoid stock photo look. Avoid generic minimalism. Texture, depth, strong point of view.
+Aspect ratio: 3:2 landscape.`;
+
+      // Six "what NOT to do" logo transformations. Each takes the user's
+      // logo as the input image and asks Nano Banana 2 to apply a specific
+      // bad-usage manipulation, so the don't page shows real examples.
+      const dontPrompts = logoForComposite
+        ? [
+            "Edit the provided logo: stretch it horizontally to roughly 2× its natural width while compressing its height. Center on a plain dark charcoal background. No text, no labels, no annotations — just the distorted logo as a single image.",
+            "Edit the provided logo: rotate it 25 degrees clockwise so it sits at an angle. Center on a plain dark charcoal background. No text, no labels, no annotations — just the rotated logo.",
+            "Edit the provided logo: recolor it with clashing rainbow gradient colors that conflict with the original palette. Center on a plain dark charcoal background. No text, no labels — just the recolored logo.",
+            "Edit the provided logo: add a thick neon-green outline stroke and a heavy harsh drop shadow around it. Center on a plain dark charcoal background. No text, no labels — just the outlined logo.",
+            "Edit the provided logo: surround it with crowded text snippets, icons, and graphic elements pressing tightly against its edges — clearly violating clear-space rules. Plain dark charcoal background. No annotations.",
+            "Edit the provided logo: fill its interior shapes with a busy floral/leopard-print pattern texture so the silhouette is broken. Center on a plain dark charcoal background. No text, no labels — just the patterned logo.",
+          ]
+        : [];
+
+      const buildImageReq = (prompt: string, aspectRatio: string, withLogo: boolean) =>
+        fetch("/api/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            aspectRatio,
+            inputImages: withLogo && logoForComposite ? [logoForComposite] : undefined,
+          }),
+        })
+          .then((r) => r.json())
+          .catch(() => ({ dataUrl: undefined }));
+
+      // Run all 10 image generations in parallel.
+      const [mockupResults, coverResult, dontResults] = await Promise.all([
+        // Mockups (3, with logo compositing)
+        Promise.all(
+          mockupPrompts.map((p, i) =>
+            buildImageReq(
+              logoForComposite
                 ? `${p}\n\nIMPORTANT: Apply the brand logo from the provided image naturally onto the visible product/surface/sign in this scene — preserve its proportions; match the lighting and perspective.`
                 : p,
-              aspectRatio: i === 0 ? "9:16" : "1:1",
-              inputImages: logoForComposite ? [logoForComposite] : undefined,
-            }),
-          }).then((r) => r.json())
-        )
-      );
+              i === 0 ? "9:16" : "1:1",
+              Boolean(logoForComposite)
+            )
+          )
+        ),
+        // Cover (1, no logo input — atmospheric only)
+        buildImageReq(coverPrompt, "3:2", false),
+        // Don't examples (6, with logo input)
+        Promise.all(
+          dontPrompts.map((p) => buildImageReq(p, "1:1", true))
+        ),
+      ]);
 
       const generated: GeneratedBrand = {
         input: brand,
@@ -284,10 +432,28 @@ export default function BrandFlow() {
         story: suggestions.story ?? "",
         patternIdea: suggestions.patternIdea ?? "",
         mockupPrompts,
-        mockupImages: imgResults.map((r) => r?.dataUrl),
+        mockupImages: mockupResults.map((r) => r?.dataUrl),
+        coverImageDataUrl: coverResult?.dataUrl,
+        logoDontExamples: dontResults.map((r) => r?.dataUrl),
       };
       setGeneratedBrand(generated);
+      // eslint-disable-next-line no-console
+      console.log("[finalize] success → /result", {
+        mockupCount: mockupResults.filter((r) => r?.dataUrl).length,
+        hasLogo: Boolean(logoRes?.dataUrl),
+        hasCover: Boolean(coverResult?.dataUrl),
+        dontCount: dontResults.filter((r) => r?.dataUrl).length,
+        usedSyntheticPersona: !validPersona,
+      });
       router.push("/result");
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[finalize] failed", e);
+      setGenError(
+        e instanceof Error
+          ? `Couldn't finish generating — ${e.message}`
+          : "Couldn't finish generating"
+      );
     } finally {
       setBusy(false);
     }
@@ -311,7 +477,10 @@ export default function BrandFlow() {
         subtitle="Taglines, headlines, story, persona — everything written, generated in your language."
         onNext={next}
       >
-        <LanguagePicker value={brand.outputLanguage} onChange={setBrandLanguage} />
+        <LanguagePicker
+          value={brand.outputLanguage}
+          onChange={setBrandLanguage}
+        />
       </StepShell>
     );
   }
@@ -474,11 +643,14 @@ export default function BrandFlow() {
             <span className="italic text-spark">mark</span> look like?
           </>
         }
-        subtitle="Pick a logo type, then describe the feeling. Nano Banana takes it from there."
+        subtitle="Pick a logo type, then describe the feeling. Nano Banana 2 takes it from there."
         nextDisabled={!valid}
         onNext={async () => {
-          await fetchSuggestions();
-          next();
+          const ok = await fetchSuggestions();
+          if (ok) next();
+          // On failure, genError state is set and surfaced below. The
+          // user stays on step 5 so they can retry by clicking Continue
+          // again (or adjust their inputs).
         }}
         onBack={back}
         busy={busy}
@@ -499,6 +671,19 @@ export default function BrandFlow() {
               rows={3}
             />
           </div>
+          {genError && (
+            <div
+              role="alert"
+              className="border border-ember/40 bg-ember/5 p-4"
+            >
+              <p className="font-mono text-xs text-ember tracking-wide">
+                {genError}
+              </p>
+              <p className="font-mono text-[10px] text-ash mt-2">
+                Click Continue to try again.
+              </p>
+            </div>
+          )}
         </div>
       </StepShell>
     );
@@ -526,7 +711,7 @@ export default function BrandFlow() {
         }
         nextDisabled={!selectedPalette || paletteRegenBusy}
         onNext={next}
-        onBack={back}
+        onBack={paletteRegenBusy ? undefined : back}
       >
         {suggestions ? (
           <>
@@ -573,7 +758,7 @@ export default function BrandFlow() {
         subtitle="Display + body. Currently-available Google Fonts only. Refine below if these don't fit."
         nextDisabled={!selectedType || typeRegenBusy}
         onNext={next}
-        onBack={back}
+        onBack={typeRegenBusy ? undefined : back}
       >
         {suggestions ? (
           <>
@@ -650,6 +835,19 @@ export default function BrandFlow() {
           }
         />
       </div>
+      {genError && (
+        <div
+          role="alert"
+          className="mt-10 max-w-4xl border border-ember/40 bg-ember/5 p-4"
+        >
+          <p className="font-mono text-xs text-ember tracking-wide">
+            {genError}
+          </p>
+          <p className="font-mono text-[10px] text-ash mt-2">
+            Click Generate bento again to retry.
+          </p>
+        </div>
+      )}
     </StepShell>
   );
 }

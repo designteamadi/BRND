@@ -2,7 +2,10 @@ import "server-only";
 import { GoogleGenAI } from "@google/genai";
 
 const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || "gemini-2.5-flash";
-const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+// Image generation pinned to Nano Banana 2 (gemini-3-pro-image-preview).
+// Override via GEMINI_IMAGE_MODEL env var if Google ships a newer string.
+const IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL || "gemini-3-pro-image-preview";
 
 export const hasGeminiKey = () => Boolean(process.env.GEMINI_API_KEY);
 

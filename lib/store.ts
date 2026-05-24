@@ -166,6 +166,17 @@ export const useBRND = create<State>()(
     {
       name: "brnd-store",
       storage: createJSONStorage(() => sessionStorage),
+      // Only persist the wizard INPUTS to sessionStorage. The generated*
+      // objects contain base64-encoded mockup images that can run into
+      // megabytes — easily exceeding sessionStorage's ~5MB per-origin quota
+      // and causing the persist write to throw. Generated output is in-memory
+      // only and lives for the duration of the SPA session, which is all we
+      // need: the user goes /brand → /result in one navigation.
+      partialize: (state) => ({
+        brand: state.brand,
+        campaign: state.campaign,
+        mode: state.mode,
+      }),
     }
   )
 );

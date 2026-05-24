@@ -22,7 +22,9 @@ export default function PalettePicker({
         return (
           <button
             key={idx}
+            type="button"
             onClick={() => onSelect(p)}
+            aria-pressed={on}
             className={`text-left border transition-all overflow-hidden ${
               on ? "border-spark" : "border-steel hover:border-ash"
             }`}
@@ -45,7 +47,7 @@ export default function PalettePicker({
                     rendering…
                   </span>
                   <span className="text-[10px] font-mono text-ash/60">
-                    Nano Banana
+                    Nano Banana 2
                   </span>
                 </div>
               ) : (

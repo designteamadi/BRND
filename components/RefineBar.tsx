@@ -47,10 +47,15 @@ export default function RefineBar({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
-            // ⌘+Enter / Ctrl+Enter submits, leaves plain Enter for newlines
+            // ⌘+Enter / Ctrl+Enter submits, plain Enter leaves a newline.
+            // Either way we stop propagation so StepShell's outer Enter-to-
+            // continue handler doesn't ALSO fire and advance the wizard.
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
+              e.stopPropagation();
               if (!busy) onSubmit();
+            } else if (e.key === "Enter") {
+              e.stopPropagation();
             }
           }}
           placeholder={placeholder}
