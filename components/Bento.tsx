@@ -173,19 +173,60 @@ export default function Bento(props: Props) {
             >
               {kind} system · v0.1
             </p>
-            <span
-              className="font-mono text-[10px] tracking-[0.22em] uppercase"
-              style={{ color: c1 }}
-            >
-              ● ready
-            </span>
+            <div className="flex items-center gap-3">
+              {/* For campaigns, show the parent brand's uploaded logo as a
+                  small "for {brand}" badge in the corner. The big typography
+                  below IS the campaign's own typographic identity. */}
+              {kind === "campaign" && logoDataUrl && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="font-mono text-[9px] tracking-[0.22em] uppercase"
+                    style={{ color: c2, opacity: 0.5 }}
+                  >
+                    for
+                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoDataUrl}
+                    alt="Parent brand"
+                    className="h-7 w-auto object-contain"
+                    style={{ maxWidth: 80 }}
+                  />
+                </div>
+              )}
+              <span
+                className="font-mono text-[10px] tracking-[0.22em] uppercase"
+                style={{ color: c1 }}
+              >
+                ● ready
+              </span>
+            </div>
           </div>
 
           <div className="relative z-10 flex items-baseline gap-5 md:gap-7">
-            <Mark color={c1} />
+            {/* For brands, the generated logo IS the brand mark — show it
+                inline next to the name as the lockup. For campaigns, the
+                campaign name set in display type IS the typography logo —
+                no mark inline, just the wordmark. */}
+            {kind === "brand" && logoDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoDataUrl}
+                alt={`${name} logo`}
+                className="h-16 md:h-20 w-auto object-contain shrink-0"
+                style={{ maxWidth: 96 }}
+              />
+            ) : kind === "brand" ? (
+              <Mark color={c1} />
+            ) : null}
             <h2
               className="text-6xl md:text-8xl tracking-tightest leading-none"
-              style={{ fontFamily: `'${displayFont}', serif`, color: c2 }}
+              style={{
+                fontFamily: `'${displayFont}', serif`,
+                color: c2,
+                fontWeight: kind === "campaign" ? 700 : 400,
+                letterSpacing: kind === "campaign" ? "-0.02em" : undefined,
+              }}
             >
               {name}
               <span style={{ color: c1 }}>.</span>
@@ -268,16 +309,61 @@ export default function Bento(props: Props) {
           }}
         >
           <div className="flex items-baseline justify-between mb-4">
-            <p className="eyebrow">03 / logo system · 4 lockup variants</p>
+            <p className="eyebrow">
+              03 / {kind === "campaign" ? "wordmark system · 4 lockup variants" : "logo system · 4 lockup variants"}
+            </p>
             <p className="font-mono text-[10px] tracking-widest uppercase text-ash">
-              clear space = 1× cap-height of mark
+              {kind === "campaign"
+                ? "campaign typography lockup"
+                : "clear space = 1× cap-height of mark"}
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 h-[140px]">
-            <LogoVariant background={c0} accent={c1} logo={logoDataUrl} label="primary · dark" />
-            <LogoVariant background={c2} accent={c0} logo={logoDataUrl} label="inverted · light" />
-            <LogoVariant background={c1} accent={c0} logo={logoDataUrl} label="accent" textColor={c0} />
-            <LogoVariant background="transparent" accent={c2} logo={logoDataUrl} label="monochrome" outline />
+            {kind === "campaign" ? (
+              <>
+                {/* Campaign typography logo, set across 4 surface treatments. */}
+                <WordmarkVariant
+                  background={c0}
+                  textColor={c2}
+                  accent={c1}
+                  text={name}
+                  font={displayFont}
+                  label="primary · dark"
+                />
+                <WordmarkVariant
+                  background={c2}
+                  textColor={c0}
+                  accent={c3}
+                  text={name}
+                  font={displayFont}
+                  label="inverted · light"
+                />
+                <WordmarkVariant
+                  background={c1}
+                  textColor={c0}
+                  accent={c0}
+                  text={name}
+                  font={displayFont}
+                  label="accent"
+                />
+                <WordmarkVariant
+                  background="transparent"
+                  textColor={c2}
+                  accent={c2}
+                  text={name}
+                  font={displayFont}
+                  label="monochrome"
+                  outline
+                />
+              </>
+            ) : (
+              <>
+                <LogoVariant background={c0} accent={c1} logo={logoDataUrl} label="primary · dark" />
+                <LogoVariant background={c2} accent={c0} logo={logoDataUrl} label="inverted · light" />
+                <LogoVariant background={c1} accent={c0} logo={logoDataUrl} label="accent" textColor={c0} />
+                <LogoVariant background="transparent" accent={c2} logo={logoDataUrl} label="monochrome" outline />
+              </>
+            )}
           </div>
         </motion.div>
 
@@ -909,6 +995,64 @@ function LogoVariant({
       <p
         className="font-mono text-[9px] tracking-widest uppercase mt-2 text-center"
         style={{ color: textColor || (background === "transparent" ? "#6b6b73" : "#6b6b73") }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Campaign-specific lockup: the campaign name set in the display font is the
+ * campaign's "typography logo". This renders it on different surface
+ * treatments — the campaign-equivalent of a brand's logo variation system.
+ */
+function WordmarkVariant({
+  background,
+  textColor,
+  accent,
+  text,
+  font,
+  label,
+  outline,
+}: {
+  background: string;
+  textColor: string;
+  accent: string;
+  text: string;
+  font: string;
+  label: string;
+  outline?: boolean;
+}) {
+  // Auto-shrink long names so they fit the variant card width.
+  const len = (text || "").length;
+  const size = len > 14 ? 18 : len > 9 ? 22 : 28;
+  return (
+    <div
+      className="flex flex-col p-3 rounded relative"
+      style={{
+        background: background === "transparent" ? "#0a0a0a" : background,
+        border: outline ? `1px dashed ${accent}80` : `1px solid #1f2128`,
+      }}
+    >
+      <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden">
+        <span
+          className="leading-none tracking-tightest text-center"
+          style={{
+            fontFamily: `'${font}', serif`,
+            color: textColor,
+            fontSize: size,
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {text}
+          <span style={{ color: accent }}>.</span>
+        </span>
+      </div>
+      <p
+        className="font-mono text-[9px] tracking-widest uppercase mt-2 text-center"
+        style={{ color: outline ? "#6b6b73" : "#6b6b73" }}
       >
         {label}
       </p>
