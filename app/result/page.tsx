@@ -263,12 +263,21 @@ export default function ResultPage() {
             persona={persona}
             tagline={tagline}
             story={story}
+            description={
+              isCampaign
+                ? c?.input.brandDescription
+                : g?.input.description
+            }
             mockupImages={mockups}
             mockupPrompts={mockupPrompts}
             patternIdea={patternIdea}
             headlines={headlines}
             cta={cta}
+            channelIdeas={channelIdeas}
             logoDataUrl={logoForComposite}
+            conceptThumbnails={(isCampaign ? c?.palettes : g?.palettes)?.map(
+              (p) => p.conceptImageDataUrl
+            )}
             onRegenMockup={handleRegenMockup}
           />
         )}
