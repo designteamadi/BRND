@@ -47,7 +47,7 @@ export default function PalettePicker({
                     rendering…
                   </span>
                   <span className="text-[10px] font-mono text-ash/60">
-                    Nano Banana
+                    Nano Banana 2
                   </span>
                 </div>
               ) : (
