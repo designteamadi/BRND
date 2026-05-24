@@ -18,7 +18,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "BRND — Your brand journey, in minutes",
   description:
-    "Generate a complete brand or a complete campaign — voice, visuals, persona, applied mockups — built by Gemini, rendered by Nano Banana.",
+    "Generate a complete brand or a complete campaign — voice, visuals, persona, applied mockups — built by Gemini, rendered by Nano Banana 2.",
   metadataBase: new URL("https://brnd.app"),
   openGraph: {
     title: "BRND",
