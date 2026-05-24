@@ -100,6 +100,14 @@ export type GeneratedBrand = {
   patternIdea: string;
   mockupPrompts: string[];
   mockupImages: (string | undefined)[];
+  /** Nano Banana 2-generated editorial hero image used as the playbook cover background. */
+  coverImageDataUrl?: string;
+  /**
+   * Six Nano Banana 2-generated "what NOT to do" examples for the logo:
+   * stretched, rotated, recolored, outlined, crowded, patterned. Shown on
+   * the playbook's "Don't" page as concrete bad-usage illustrations.
+   */
+  logoDontExamples?: (string | undefined)[];
 };
 
 export type GeneratedCampaign = {
@@ -114,6 +122,8 @@ export type GeneratedCampaign = {
   channelIdeas: Record<MediaChannel, string>;
   mockupPrompts: string[];
   mockupImages: (string | undefined)[];
+  /** Nano Banana 2-generated editorial hero image used as the campaign-book cover. */
+  coverImageDataUrl?: string;
 };
 
 export type ReasonRequest =
