@@ -350,26 +350,74 @@ export default function BrandFlow() {
         body: JSON.stringify({ prompt: logoPrompt, aspectRatio: "1:1" }),
       }).then((r) => r.json());
 
-      // 3. Mockups in parallel — with logo compositing once logo exists
+      // 3. Mockups + cover + don't examples — all run in parallel after logo.
+      // Total parallel image gens after logo: 3 mockups + 1 cover + 6 don'ts = 10.
+      // Nano Banana 2 handles these concurrently, so wall time is bounded by
+      // the slowest single call (~15-25s), not the sum.
       const mockupPrompts = (suggestions.mockupPrompts || []).slice(0, 3);
       const logoForComposite = logoRes?.dataUrl;
-      const imgResults = await Promise.all(
-        mockupPrompts.map((p, i) =>
-          fetch("/api/image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt: logoForComposite
+
+      // Editorial brand-book cover image — atmospheric, no text/letters.
+      const coverPrompt = `Editorial brand book cover photograph for "${brand.businessName}", a ${brand.industry || "modern"} brand.
+Brand essence: ${brand.description || brand.mission || "considered, deliberate, specific"}
+Archetypes: ${brand.archetypes.join(", ")}.
+Tone: ${brand.toneKeywords.join(", ") || "honest, deliberate"}.
+Visual direction: ${selectedPalette.name} — ${selectedPalette.rationale || ""}.
+Color palette to evoke: ${selectedPalette.hexes.join(", ")}.
+
+Style: cinematic, museum-quality editorial photograph. Should feel like the hero spread on a $50 designer brand-identity manual. Sophisticated composition — atmospheric macro photography, abstract material textures, OR a single hero conceptual shot.
+Strictly NO text, NO logos, NO words, NO letters, NO type of any kind. Just atmospheric imagery.
+Avoid stock photo look. Avoid generic minimalism. Texture, depth, strong point of view.
+Aspect ratio: 3:2 landscape.`;
+
+      // Six "what NOT to do" logo transformations. Each takes the user's
+      // logo as the input image and asks Nano Banana 2 to apply a specific
+      // bad-usage manipulation, so the don't page shows real examples.
+      const dontPrompts = logoForComposite
+        ? [
+            "Edit the provided logo: stretch it horizontally to roughly 2× its natural width while compressing its height. Center on a plain dark charcoal background. No text, no labels, no annotations — just the distorted logo as a single image.",
+            "Edit the provided logo: rotate it 25 degrees clockwise so it sits at an angle. Center on a plain dark charcoal background. No text, no labels, no annotations — just the rotated logo.",
+            "Edit the provided logo: recolor it with clashing rainbow gradient colors that conflict with the original palette. Center on a plain dark charcoal background. No text, no labels — just the recolored logo.",
+            "Edit the provided logo: add a thick neon-green outline stroke and a heavy harsh drop shadow around it. Center on a plain dark charcoal background. No text, no labels — just the outlined logo.",
+            "Edit the provided logo: surround it with crowded text snippets, icons, and graphic elements pressing tightly against its edges — clearly violating clear-space rules. Plain dark charcoal background. No annotations.",
+            "Edit the provided logo: fill its interior shapes with a busy floral/leopard-print pattern texture so the silhouette is broken. Center on a plain dark charcoal background. No text, no labels — just the patterned logo.",
+          ]
+        : [];
+
+      const buildImageReq = (prompt: string, aspectRatio: string, withLogo: boolean) =>
+        fetch("/api/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            aspectRatio,
+            inputImages: withLogo && logoForComposite ? [logoForComposite] : undefined,
+          }),
+        })
+          .then((r) => r.json())
+          .catch(() => ({ dataUrl: undefined }));
+
+      // Run all 10 image generations in parallel.
+      const [mockupResults, coverResult, dontResults] = await Promise.all([
+        // Mockups (3, with logo compositing)
+        Promise.all(
+          mockupPrompts.map((p, i) =>
+            buildImageReq(
+              logoForComposite
                 ? `${p}\n\nIMPORTANT: Apply the brand logo from the provided image naturally onto the visible product/surface/sign in this scene — preserve its proportions; match the lighting and perspective.`
                 : p,
-              aspectRatio: i === 0 ? "9:16" : "1:1",
-              inputImages: logoForComposite ? [logoForComposite] : undefined,
-            }),
-          })
-            .then((r) => r.json())
-            .catch(() => ({ dataUrl: undefined }))
-        )
-      );
+              i === 0 ? "9:16" : "1:1",
+              Boolean(logoForComposite)
+            )
+          )
+        ),
+        // Cover (1, no logo input — atmospheric only)
+        buildImageReq(coverPrompt, "3:2", false),
+        // Don't examples (6, with logo input)
+        Promise.all(
+          dontPrompts.map((p) => buildImageReq(p, "1:1", true))
+        ),
+      ]);
 
       const generated: GeneratedBrand = {
         input: brand,
@@ -384,13 +432,17 @@ export default function BrandFlow() {
         story: suggestions.story ?? "",
         patternIdea: suggestions.patternIdea ?? "",
         mockupPrompts,
-        mockupImages: imgResults.map((r) => r?.dataUrl),
+        mockupImages: mockupResults.map((r) => r?.dataUrl),
+        coverImageDataUrl: coverResult?.dataUrl,
+        logoDontExamples: dontResults.map((r) => r?.dataUrl),
       };
       setGeneratedBrand(generated);
       // eslint-disable-next-line no-console
       console.log("[finalize] success → /result", {
-        mockupCount: imgResults.filter((r) => r?.dataUrl).length,
+        mockupCount: mockupResults.filter((r) => r?.dataUrl).length,
         hasLogo: Boolean(logoRes?.dataUrl),
+        hasCover: Boolean(coverResult?.dataUrl),
+        dontCount: dontResults.filter((r) => r?.dataUrl).length,
         usedSyntheticPersona: !validPersona,
       });
       router.push("/result");
