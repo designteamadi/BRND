@@ -181,9 +181,12 @@ export const mockBrandSuggestions = (b: BrandInput) => ({
     `Cool minimal product composition for ${b.businessName}, ocean teal and bone with sunlit highlights.`,
   ],
   mockupPrompts: [
-    `A premium product mockup for ${b.businessName}, soft natural lighting, neutral background, brand-forward composition.`,
-    `An in-context lifestyle shot showing ${b.businessName} in use by ${b.targetAudience || "someone in their element"}, cinematic light.`,
-    `A bold poster mockup featuring the ${b.businessName} wordmark on a city wall at golden hour.`,
+    `HERO product mockup for ${b.businessName}, 9:16 vertical, dramatic editorial lighting, the brand's defining product photographed as a cover hero. Brand name visible naturally.`,
+    `SOCIAL post for ${b.businessName}, 1:1 square, in-context lifestyle shot with ${b.targetAudience || "the brand's audience"} using the product, on-brand color palette, natural light.`,
+    `POSTER design for ${b.businessName}, 2:3 portrait, bold typographic-photographic composition with brand wordmark integrated, gallery-wall feel.`,
+    `OOH billboard for ${b.businessName}, 16:9 horizontal, brand applied to a real urban billboard or transit ad, photographed at pedestrian street level, environmental context.`,
+    `BRAND COLLATERAL for ${b.businessName}, 4:3 horizontal, business cards + stationery + packaging styled on a tactile surface, intentional lighting, brand mark visible on each piece.`,
+    `PHOTOGRAPHY direction for ${b.businessName}, 1:1 square, a single hero editorial photograph defining the brand's photographic style — color treatment, subject, mood. No text overlays.`,
   ],
 });
 
@@ -234,9 +237,12 @@ export const mockCampaignSuggestions = (c: CampaignInput) => ({
     `Cool minimal campaign visual for "${c.campaignName}", ocean palette, daylight clean.`,
   ],
   mockupPrompts: [
-    `Hero campaign poster for ${c.campaignName}, bold typography, high contrast, evocative subject.`,
-    `Secondary campaign visual — product in dramatic light with the ${c.brandName} wordmark.`,
-    `Lifestyle moment showing ${c.targetMarket || "the audience"} encountering the campaign in the wild.`,
+    `HERO campaign visual for "${c.campaignName}", 9:16 vertical, cinematic, on-message, the defining lead image for the launch announcement. ${c.brandName} mark visible if it fits naturally.`,
+    `SOCIAL POST for "${c.campaignName}", 1:1 square, a real-feeling Instagram still showing ${c.targetMarket || "the audience"} encountering the campaign in a lifestyle moment. ${c.brandName} wordmark visible.`,
+    `STORY/REEL frame for "${c.campaignName}", 9:16 vertical, a single bold thumb-stop composition designed for Instagram Stories / TikTok feed.`,
+    `POSTER for "${c.campaignName}", 2:3 portrait, editorial campaign poster as if wheat-pasted to an urban wall, headline integrated into the composition, photographic feel.`,
+    `PHOTO MOODBOARD for "${c.campaignName}", 1:1 square, a single hero editorial photograph that defines the campaign's visual style — color, energy, human moment.`,
+    `OOH for "${c.campaignName}", 16:9 horizontal, the campaign applied to a real-world billboard or transit surface, photographed in situ at street level.`,
   ],
 });
 
