@@ -272,12 +272,20 @@ export default function CampaignFlow() {
     try {
       // -------- Single parallel stage --------
       // For campaigns the brand logo is uploaded at step 2 (already in
-      // campaign.logoDataUrl), so persona text + 3 mockups can all start
-      // immediately without waiting on each other. The cover image — used
-      // only in the playbook PDF — is generated in the background on
+      // campaign.logoDataUrl), so persona text + 6 mockups can all start
+      // immediately. Cover image — playbook-only — is background-gen on
       // /result so the bento appears faster.
-      const prompts = (suggestions.mockupPrompts || []).slice(0, 3);
+      //
+      // 6 mockup slots (matching the prompt categories from /api/reason):
+      //   slot 0: HERO          9:16
+      //   slot 1: SOCIAL POST   1:1
+      //   slot 2: STORY/REEL    9:16
+      //   slot 3: POSTER        2:3
+      //   slot 4: PHOTO MOOD    1:1
+      //   slot 5: OOH           16:9
+      const prompts = (suggestions.mockupPrompts || []).slice(0, 6);
       const userLogo = campaign.logoDataUrl;
+      const MOCKUP_ASPECTS = ["9:16", "1:1", "9:16", "2:3", "1:1", "16:9"];
 
       const buildImageReq = (
         prompt: string,
@@ -312,7 +320,7 @@ export default function CampaignFlow() {
               userLogo
                 ? `${p}\n\nIMPORTANT: Apply the brand logo from the provided image naturally onto the visible product/surface/sign in this scene — preserve its proportions; match the lighting and perspective.`
                 : p,
-              i === 0 ? "9:16" : "1:1",
+              MOCKUP_ASPECTS[i] || "1:1",
               Boolean(userLogo)
             )
           )
