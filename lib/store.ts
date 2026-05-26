@@ -60,7 +60,10 @@ type State = {
   setMode: (m: "brand" | "campaign") => void;
   updateBrandMockup: (idx: number, dataUrl: string) => void;
   updateBrandLogo: (dataUrl: string) => void;
+  updateBrandCover: (dataUrl: string) => void;
+  updateBrandDontExamples: (examples: (string | undefined)[]) => void;
   updateCampaignMockup: (idx: number, dataUrl: string) => void;
+  updateCampaignCover: (dataUrl: string) => void;
   reset: () => void;
 };
 
@@ -142,6 +145,20 @@ export const useBRND = create<State>()(
             generatedBrand: { ...s.generatedBrand, logoImageDataUrl: dataUrl },
           };
         }),
+      updateBrandCover: (dataUrl) =>
+        set((s) => {
+          if (!s.generatedBrand) return s;
+          return {
+            generatedBrand: { ...s.generatedBrand, coverImageDataUrl: dataUrl },
+          };
+        }),
+      updateBrandDontExamples: (examples) =>
+        set((s) => {
+          if (!s.generatedBrand) return s;
+          return {
+            generatedBrand: { ...s.generatedBrand, logoDontExamples: examples },
+          };
+        }),
       updateCampaignMockup: (idx, dataUrl) =>
         set((s) => {
           if (!s.generatedCampaign) return s;
@@ -151,6 +168,16 @@ export const useBRND = create<State>()(
             generatedCampaign: {
               ...s.generatedCampaign,
               mockupImages: mockups,
+            },
+          };
+        }),
+      updateCampaignCover: (dataUrl) =>
+        set((s) => {
+          if (!s.generatedCampaign) return s;
+          return {
+            generatedCampaign: {
+              ...s.generatedCampaign,
+              coverImageDataUrl: dataUrl,
             },
           };
         }),
