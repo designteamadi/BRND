@@ -51,13 +51,16 @@ Return JSON only, no commentary:
     "same for palette 3"
   ],
   "mockupPrompts": [
-    "an image generation prompt for a key product mockup",
-    "an image generation prompt for a second contextual mockup",
-    "an image generation prompt for a third lifestyle / brand-in-context mockup"
+    "HERO product/brand application (9:16 vertical, dramatic). The signature image — show the brand's most defining product, packaging, or experience as a cinematic hero composition. Include the brand name where natural. Lighting + framing + surface explicit.",
+    "SOCIAL media post (1:1 square). A real-feeling, on-brand Instagram-style still showing the brand in a contemporary lifestyle moment. Specific scene, specific subject. Brand name visible somewhere if natural.",
+    "POSTER design (2:3 portrait, print). An editorial poster as if pinned to a gallery wall — strong typographic-photographic composition that could be the brand's announcement poster. Reference the brand name as part of the design.",
+    "OOH / billboard (16:9 horizontal). The brand applied to a real out-of-home surface — billboard, transit ad, building wrap, or large-format installation — photographed in situ from a pedestrian or driving angle.",
+    "BRAND COLLATERAL (4:3 horizontal). Tactile printed materials — business cards, stationery, packaging, swing tags, or branded merch — arranged on a styled surface with intentional lighting. Show the brand mark/wordmark in the layout.",
+    "PHOTOGRAPHY direction (1:1 square). A single hero photograph that defines the brand's photographic style — subject, color treatment, depth, mood. Editorial, not stock. No text overlays."
   ]
 }
 
-Provide exactly 3 palettes, 3 typography pairings, 3 concept thumbnail prompts (one per palette), and 3 mockup prompts. Use only real, currently available Google Fonts for typography. Make image prompts photographic, specific, and on-brief — include lighting, framing, surface, and the brand name where natural. The conceptThumbnailPrompts should each represent the matching palette's mood visually.
+Provide exactly 3 palettes, 3 typography pairings, 3 concept thumbnail prompts (one per palette), and 6 mockup prompts (one for each labeled surface, in the order shown). Use only real, currently available Google Fonts for typography. Make image prompts photographic, specific, and on-brief — include lighting, framing, surface, and the brand name where natural. The conceptThumbnailPrompts should each represent the matching palette's mood visually.
 `.trim();
 
 export const brandPersonaPrompt = (b: BrandInput, p: ColorPalette) => `
@@ -191,13 +194,16 @@ Return JSON only:
     "same for palette 3"
   ],
   "mockupPrompts": [
-    "image generation prompt for a hero campaign visual",
-    "image generation prompt for a second key campaign asset",
-    "image generation prompt for an in-context lifestyle moment"
+    "HERO campaign visual (9:16 vertical). The defining campaign image — what would be the lead asset in a launch announcement. Cinematic, on-message, brand name visible if it fits naturally.",
+    "SOCIAL media post (1:1 square). A real-feeling on-brand Instagram-style still that lives in a feed. Specific scene from the campaign, lifestyle subject, brand name visible somewhere natural.",
+    "STORY / REEL (9:16 vertical). A vertical video poster-frame as it would appear in Instagram Stories or TikTok — single bold composition designed for thumb-stop, brand mark layered in.",
+    "POSTER design (2:3 portrait). An editorial campaign poster as if pinned to an urban wall or gallery — typographic + photographic composition with the campaign headline integrated visually.",
+    "PHOTO MOODBOARD (1:1 square). A single hero photograph that defines this campaign's visual style — the color, the energy, the type of human moment it captures. Editorial, not stock.",
+    "OOH / BILLBOARD (16:9 horizontal). The campaign applied to a real-world out-of-home surface — billboard, transit, kiosk, projection — photographed in situ at street level."
   ]
 }
 
-Provide exactly 3 palettes, 3 typography pairings, 3 concept thumbnail prompts, and 3 mockup prompts. Only fill channelIdeas keys that are in the selected channels list above; for others, return an empty string. Photographic prompts only — include lighting, framing, subject, and reference the campaign message visually.
+Provide exactly 3 palettes, 3 typography pairings, 3 concept thumbnail prompts, and 6 mockup prompts (one for each labeled surface, in the order shown). Only fill channelIdeas keys that are in the selected channels list above; for others, return an empty string. Photographic prompts only — include lighting, framing, subject, and reference the campaign message visually.
 `.trim();
 
 export const campaignPersonaPrompt = (c: CampaignInput, p: ColorPalette) => `
