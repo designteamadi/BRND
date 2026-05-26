@@ -204,11 +204,12 @@ export default function Bento(props: Props) {
           </div>
 
           <div className="relative z-10 flex items-baseline gap-5 md:gap-7">
-            {/* For brands, the generated logo IS the brand mark — show it
-                inline next to the name as the lockup. For campaigns, the
-                campaign name set in display type IS the typography logo —
-                no mark inline, just the wordmark. */}
-            {kind === "brand" && logoDataUrl ? (
+            {/* For brands: show ONLY the user/generated logo image. If
+                no logo exists, render nothing here — the typography below
+                stands alone as the wordmark. No triangle fallback ever.
+                For campaigns: the campaign name set in display type IS
+                the typography logo — no inline mark. */}
+            {kind === "brand" && logoDataUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoDataUrl}
@@ -216,9 +217,7 @@ export default function Bento(props: Props) {
                 className="h-16 md:h-20 w-auto object-contain shrink-0"
                 style={{ maxWidth: 96 }}
               />
-            ) : kind === "brand" ? (
-              <Mark color={c1} />
-            ) : null}
+            )}
             <h2
               className="text-6xl md:text-8xl tracking-tightest leading-none"
               style={{
@@ -319,9 +318,11 @@ export default function Bento(props: Props) {
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 h-[140px]">
-            {kind === "campaign" ? (
+            {kind === "campaign" || !logoDataUrl ? (
               <>
-                {/* Campaign typography logo, set across 4 surface treatments. */}
+                {/* Campaign always uses typography wordmark variants.
+                    Brand also falls back to wordmark variants if logo
+                    image generation failed — never the triangle mark. */}
                 <WordmarkVariant
                   background={c0}
                   textColor={c2}
@@ -941,15 +942,6 @@ function MockupTile({
   );
 }
 
-function Mark({ color }: { color: string }) {
-  return (
-    <svg width="56" height="56" viewBox="0 0 40 40" aria-hidden="true">
-      <polygon points="20,5 36,33 4,33" fill="none" stroke={color} strokeWidth="2.5" />
-      <polygon points="20,16 28,30 12,30" fill={color} />
-    </svg>
-  );
-}
-
 function LogoVariant({
   background,
   accent,
@@ -989,7 +981,12 @@ function LogoVariant({
             }
           />
         ) : (
-          <Mark color={accent} />
+          <span
+            className="font-mono text-[10px] tracking-widest uppercase"
+            style={{ color: accent, opacity: 0.5 }}
+          >
+            no logo
+          </span>
         )}
       </div>
       <p
