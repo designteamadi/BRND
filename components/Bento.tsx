@@ -465,47 +465,10 @@ export default function Bento(props: Props) {
           </div>
         </motion.div>
 
-        {/* ============ 06 / ICONOGRAPHY ============ */}
-        <motion.div
-          {...tileMotion(5)}
-          className="rounded-lg p-6 flex flex-col"
-          style={{
-            background: "#0d0d0e",
-            border: "1px solid #1f2128",
-            gridColumn: "span 2",
-            gridRow: "span 2",
-            minHeight: "320px",
-          }}
-        >
-          <p className="eyebrow mb-4">06 / iconography</p>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {ICON_KEYS.map((k, i) => (
-              <IconChip
-                key={`out-${i}`}
-                shape={k}
-                variant="outline"
-                color={[c1, "#ff6b35", c3, "#f4f0e6", c1, c3][i]}
-              />
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-2 mb-auto">
-            {ICON_KEYS.map((k, i) => (
-              <IconChip
-                key={`fill-${i}`}
-                shape={k}
-                variant="filled"
-                color={[c1, "#ff6b35", c3, "#f4f0e6", c1, c3][i]}
-              />
-            ))}
-          </div>
-          <p
-            className="text-ash text-[10px] tracking-widest uppercase mt-3 font-mono"
-          >
-            outline · filled · 2 weights total
-          </p>
-        </motion.div>
-
-        {/* ============ 07 / HERO MOCKUP (tall) ============ */}
+        {/* ============ 06 / HERO APPLICATION (mockup 0) ============
+            The headline mockup — first thing the user reads. For brand
+            this is the defining product/brand application. For campaign
+            it's the hero visual that anchors the launch. */}
         <motion.div
           {...tileMotion(6)}
           className="rounded-lg overflow-hidden relative group"
@@ -526,7 +489,7 @@ export default function Bento(props: Props) {
               className="font-mono text-[10px] tracking-[0.22em] uppercase mix-blend-difference"
               style={{ color: c2 }}
             >
-              07 / hero application
+              06 / {kind === "campaign" ? "hero campaign visual" : "hero application"}
             </p>
             <p
               className="text-3xl md:text-4xl leading-none mix-blend-difference max-w-[80%]"
@@ -553,7 +516,7 @@ export default function Bento(props: Props) {
           }}
         >
           <div className="flex items-baseline justify-between mb-3">
-            <p className="eyebrow">08 / persona</p>
+            <p className="eyebrow">07 / persona</p>
             <p className="font-mono text-[10px] tracking-widest uppercase text-ash">
               {archetypeLabel}
             </p>
@@ -584,108 +547,117 @@ export default function Bento(props: Props) {
         </motion.div>
 
         {/* ============ 09 / PATTERN (next to hero mockup) ============ */}
-        <motion.div
-          {...tileMotion(8)}
-          className="rounded-lg overflow-hidden relative"
-          style={{
-            background: c1,
-            gridColumn: "span 3",
-            gridRow: "span 1",
-            minHeight: "140px",
-          }}
-        >
-          <svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 600 140"
-            preserveAspectRatio="xMidYMid slice"
-            style={{ display: "block" }}
+        {/* ============ 08 / SIGNATURE PATTERN (brand only) ============
+            The campaign book doesn't need a brand pattern — it shows
+            applied campaign design, not brand-system primitives. */}
+        {kind === "brand" && (
+          <motion.div
+            {...tileMotion(8)}
+            className="rounded-lg overflow-hidden relative"
+            style={{
+              background: c1,
+              gridColumn: "span 3",
+              gridRow: "span 1",
+              minHeight: "140px",
+            }}
           >
-            <defs>
-              <pattern
-                id="brandPattern"
-                x="0"
-                y="0"
-                width="28"
-                height="28"
-                patternUnits="userSpaceOnUse"
+            <svg
+              width="100%"
+              height="100%"
+              viewBox="0 0 600 140"
+              preserveAspectRatio="xMidYMid slice"
+              style={{ display: "block" }}
+            >
+              <defs>
+                <pattern
+                  id="brandPattern"
+                  x="0"
+                  y="0"
+                  width="28"
+                  height="28"
+                  patternUnits="userSpaceOnUse"
+                >
+                  <polygon
+                    points="14,4 24,22 4,22"
+                    fill="none"
+                    stroke={c0}
+                    strokeWidth="1.5"
+                  />
+                </pattern>
+              </defs>
+              <rect width="600" height="140" fill="url(#brandPattern)" />
+            </svg>
+            <div className="absolute inset-0 flex flex-col justify-between p-5">
+              <p
+                className="font-mono text-[10px] tracking-[0.22em] uppercase"
+                style={{ color: contrast(c1) }}
               >
-                <polygon
-                  points="14,4 24,22 4,22"
-                  fill="none"
-                  stroke={c0}
-                  strokeWidth="1.5"
-                />
-              </pattern>
-            </defs>
-            <rect width="600" height="140" fill="url(#brandPattern)" />
-          </svg>
-          <div className="absolute inset-0 flex flex-col justify-between p-5">
-            <p
-              className="font-mono text-[10px] tracking-[0.22em] uppercase"
-              style={{ color: contrast(c1) }}
-            >
-              09 / signature pattern
-            </p>
-            <p
-              className="text-sm md:text-base max-w-md leading-snug"
-              style={{
-                color: contrast(c1),
-                fontFamily: `'${bodyFont}', sans-serif`,
-                fontWeight: 500,
-              }}
-            >
-              {patternIdea
-                ? patternIdea.slice(0, 110) + (patternIdea.length > 110 ? "…" : "")
-                : "A signature mark, used as background, frame, and cropping device."}
-            </p>
-          </div>
-        </motion.div>
+                08 / signature pattern
+              </p>
+              <p
+                className="text-sm md:text-base max-w-md leading-snug"
+                style={{
+                  color: contrast(c1),
+                  fontFamily: `'${bodyFont}', sans-serif`,
+                  fontWeight: 500,
+                }}
+              >
+                {patternIdea
+                  ? patternIdea.slice(0, 110) + (patternIdea.length > 110 ? "…" : "")
+                  : "A signature mark, used as background, frame, and cropping device."}
+              </p>
+            </div>
+          </motion.div>
+        )}
 
-        {/* ============ 10 / SECONDARY MOCKUP ============ */}
-        <motion.div
-          {...tileMotion(9)}
-          className="rounded-lg overflow-hidden relative group"
-          style={{
-            background: "#1a1f28",
-            gridColumn: "span 3",
-            gridRow: "span 2",
-            minHeight: "280px",
-          }}
-        >
-          <MockupTile
-            image={mockupImages[1]}
-            regenerating={regenIdx === 1}
-            onRegen={onRegenMockup ? () => handleRegen(1) : undefined}
-          />
-          <p className="absolute top-4 left-4 font-mono text-[10px] tracking-[0.22em] uppercase text-bone/85 mix-blend-difference pointer-events-none">
-            10 / applied · context one
-          </p>
-        </motion.div>
-
-        {/* ============ 11 / TERTIARY MOCKUP ============ */}
-        <motion.div
-          {...tileMotion(10)}
-          className="rounded-lg overflow-hidden relative group"
-          style={{
-            background: c2,
-            gridColumn: "span 3",
-            gridRow: "span 2",
-            minHeight: "280px",
-          }}
-        >
-          <MockupTile
-            image={mockupImages[2]}
-            regenerating={regenIdx === 2}
-            onRegen={onRegenMockup ? () => handleRegen(2) : undefined}
-          />
-          <p
-            className="absolute top-4 left-4 font-mono text-[10px] tracking-[0.22em] uppercase mix-blend-difference pointer-events-none"
-            style={{ color: c0 }}
+        {/* ============ APPLIED-DESIGN MOCKUP GALLERY ============
+            Five mockup tiles after the hero (slot 0). Each tile is sized
+            to fit its image's aspect ratio (set during finalize via the
+            MOCKUP_ASPECTS array in /brand and /campaign):
+              brand:     [HERO 9:16] · SOCIAL 1:1 · POSTER 2:3 · OOH 16:9 · COLLATERAL 4:3 · PHOTOGRAPHY 1:1
+              campaign:  [HERO 9:16] · SOCIAL 1:1 · STORY 9:16 · POSTER 2:3 · PHOTO 1:1 · OOH 16:9
+            The slot array drives both the visual layout (grid span) AND
+            the descriptive label, so adding/removing categories is one edit. */}
+        {(kind === "campaign"
+          ? [
+              { idx: 1, label: "social post",       cols: 3, rows: 2, bg: "#1a1f28", inverted: false },
+              { idx: 2, label: "story · reel",      cols: 3, rows: 3, bg: c2,        inverted: true },
+              { idx: 3, label: "campaign poster",   cols: 6, rows: 3, bg: c1,        inverted: false },
+              { idx: 4, label: "photo moodboard",   cols: 3, rows: 2, bg: "#0d0d0e", inverted: false },
+              { idx: 5, label: "ooh · billboard",   cols: 6, rows: 2, bg: "#1a1f28", inverted: false },
+            ]
+          : [
+              { idx: 1, label: "social",            cols: 3, rows: 2, bg: "#1a1f28", inverted: false },
+              { idx: 2, label: "poster",            cols: 3, rows: 3, bg: c2,        inverted: true },
+              { idx: 3, label: "ooh · billboard",   cols: 6, rows: 2, bg: c1,        inverted: false },
+              { idx: 4, label: "brand collateral",  cols: 3, rows: 2, bg: "#0d0d0e", inverted: false },
+              { idx: 5, label: "photography",       cols: 3, rows: 2, bg: "#1a1f28", inverted: false },
+            ]
+        ).map((slot, motionOffset) => (
+          <motion.div
+            key={`mockup-${slot.idx}`}
+            {...tileMotion(9 + motionOffset)}
+            className="rounded-lg overflow-hidden relative group"
+            style={{
+              background: slot.bg,
+              gridColumn: `span ${slot.cols}`,
+              gridRow: `span ${slot.rows}`,
+              minHeight: slot.rows === 3 ? "420px" : slot.rows === 2 ? "280px" : "140px",
+            }}
           >
-            11 / applied · context two
-          </p>
-        </motion.div>
+            <MockupTile
+              image={mockupImages[slot.idx]}
+              regenerating={regenIdx === slot.idx}
+              onRegen={onRegenMockup ? () => handleRegen(slot.idx) : undefined}
+            />
+            <p
+              className="absolute top-4 left-4 font-mono text-[10px] tracking-[0.22em] uppercase mix-blend-difference pointer-events-none"
+              style={{ color: slot.inverted ? c0 : c2 }}
+            >
+              {String(slot.idx + 7).padStart(2, "0")} / applied · {slot.label}
+            </p>
+          </motion.div>
+        ))}
 
         {/* ============ 12 / HEADLINES (campaign only) ============ */}
         {headlines && headlines.length > 0 && (
@@ -1111,78 +1083,6 @@ function DetailBlock({
 
 // ---------- Iconography ----------
 
-type IconShape = "bolt" | "code" | "circle" | "heart" | "star" | "users";
-const ICON_KEYS: IconShape[] = ["bolt", "code", "circle", "heart", "star", "users"];
-
-function IconChip({
-  shape,
-  variant,
-  color,
-}: {
-  shape: IconShape;
-  variant: "outline" | "filled";
-  color: string;
-}) {
-  const filled = variant === "filled";
-  return (
-    <div
-      className="aspect-square rounded flex items-center justify-center"
-      style={{
-        background: filled ? color : "#15161a",
-        border: filled ? "none" : `1px solid ${color}66`,
-      }}
-    >
-      <IconGlyph shape={shape} color={filled ? contrast(color) : color} />
-    </div>
-  );
-}
-
-function IconGlyph({ shape, color }: { shape: IconShape; color: string }) {
-  const sw = 1.6;
-  switch (shape) {
-    case "bolt":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-        </svg>
-      );
-    case "code":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="16 18 22 12 16 6" />
-          <polyline points="8 6 2 12 8 18" />
-        </svg>
-      );
-    case "circle":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <circle cx="12" cy="12" r="3" fill={color} stroke="none" />
-        </svg>
-      );
-    case "heart":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-        </svg>
-      );
-    case "star":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
-      );
-    case "users":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      );
-  }
-}
 
 // ---------- Principle icons (essence) ----------
 
