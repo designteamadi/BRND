@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
@@ -23,12 +23,26 @@ export default function ResultPage() {
     mode,
     reset,
     updateBrandMockup,
+    updateBrandCover,
+    updateBrandDontExamples,
     updateCampaignMockup,
+    updateCampaignCover,
   } = useBRND();
   const [tab, setTab] = useState<Tab>("visuals");
   const [hydrated, setHydrated] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  /**
+   * Background generation status for the playbook-only assets (cover
+   * image + 6 logo "Don't" examples). These aren't needed for the bento
+   * itself — only for the downloadable PDF — so we generate them
+   * silently after the user lands on /result. The Download button
+   * shows a subtle "preparing playbook…" hint while this is in flight.
+   */
+  const [playbookAssetsReady, setPlaybookAssetsReady] = useState(false);
+  // Ensures we only kick off background generation once per mount, even
+  // if React re-runs the effect (StrictMode, props change, etc.).
+  const backgroundStartedRef = useRef(false);
 
   useEffect(() => {
     setHydrated(true);
@@ -40,6 +54,110 @@ export default function ResultPage() {
       router.replace("/");
     }
   }, [hydrated, generatedBrand, generatedCampaign, router]);
+
+  /**
+   * Background generation of playbook-only assets. Fires once when the
+   * user lands on /result with a finished generation. The user can browse
+   * their bento immediately while these stream in behind the scenes;
+   * by the time they click "Download playbook" they're usually ready.
+   */
+  useEffect(() => {
+    if (!hydrated) return;
+    if (backgroundStartedRef.current) return;
+    if (!generatedBrand && !generatedCampaign) return;
+    backgroundStartedRef.current = true;
+
+    const run = async () => {
+      // eslint-disable-next-line no-console
+      console.log("[result] background playbook-asset generation started");
+
+      const buildImageReq = (
+        prompt: string,
+        aspectRatio: string,
+        inputImages?: string[]
+      ) =>
+        fetch("/api/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, aspectRatio, inputImages }),
+        })
+          .then((r) => r.json())
+          .catch(() => ({ dataUrl: undefined }));
+
+      if (generatedBrand) {
+        const b = generatedBrand;
+        const coverPrompt = `Editorial brand book cover photograph for "${b.input.businessName}", a ${b.input.industry || "modern"} brand.
+Brand essence: ${b.input.description || b.input.mission || "considered, deliberate, specific"}
+Archetypes: ${b.input.archetypes.join(", ")}.
+Tone: ${b.input.toneKeywords.join(", ") || "honest, deliberate"}.
+Visual direction: ${b.selectedPalette.name} — ${b.selectedPalette.rationale || ""}.
+Color palette to evoke: ${b.selectedPalette.hexes.join(", ")}.
+
+Style: cinematic, museum-quality editorial photograph. Should feel like the hero spread on a $50 designer brand-identity manual. Sophisticated composition — atmospheric macro photography, abstract material textures, OR a single hero conceptual shot.
+Strictly NO text, NO logos, NO words, NO letters, NO type of any kind. Just atmospheric imagery.
+Avoid stock photo look. Avoid generic minimalism. Texture, depth, strong point of view.
+Aspect ratio: 3:2 landscape.`;
+
+        const logo = b.logoImageDataUrl;
+        const dontPrompts = logo
+          ? [
+              "Edit the provided logo: stretch it horizontally to roughly 2× its natural width while compressing its height. Center on a plain dark charcoal background. No text, no labels, no annotations — just the distorted logo as a single image.",
+              "Edit the provided logo: rotate it 25 degrees clockwise so it sits at an angle. Center on a plain dark charcoal background. No text, no labels, no annotations — just the rotated logo.",
+              "Edit the provided logo: recolor it with clashing rainbow gradient colors that conflict with the original palette. Center on a plain dark charcoal background. No text, no labels — just the recolored logo.",
+              "Edit the provided logo: add a thick neon-green outline stroke and a heavy harsh drop shadow around it. Center on a plain dark charcoal background. No text, no labels — just the outlined logo.",
+              "Edit the provided logo: surround it with crowded text snippets, icons, and graphic elements pressing tightly against its edges — clearly violating clear-space rules. Plain dark charcoal background. No annotations.",
+              "Edit the provided logo: fill its interior shapes with a busy floral/leopard-print pattern texture so the silhouette is broken. Center on a plain dark charcoal background. No text, no labels — just the patterned logo.",
+            ]
+          : [];
+
+        // Cover + all 6 don't examples in parallel.
+        const [coverRes, dontRes] = await Promise.all([
+          buildImageReq(coverPrompt, "3:2"),
+          Promise.all(
+            dontPrompts.map((p) =>
+              buildImageReq(p, "1:1", logo ? [logo] : undefined)
+            )
+          ),
+        ]);
+        if (coverRes?.dataUrl) updateBrandCover(coverRes.dataUrl);
+        if (dontRes.length > 0)
+          updateBrandDontExamples(dontRes.map((r) => r?.dataUrl));
+        // eslint-disable-next-line no-console
+        console.log("[result] brand playbook assets ready", {
+          hasCover: Boolean(coverRes?.dataUrl),
+          dontCount: dontRes.filter((r) => r?.dataUrl).length,
+        });
+      } else if (generatedCampaign) {
+        const cg = generatedCampaign;
+        const coverPrompt = `Editorial campaign book cover photograph for "${cg.input.campaignName || cg.input.brandName}", a campaign for ${cg.input.brandName}.
+Campaign story: ${cg.input.campaignStory || cg.input.campaignPurpose || ""}
+Target audience: ${cg.input.targetMarket || ""}
+Archetypes: ${cg.input.archetypes.join(", ")}.
+Tone: ${cg.input.toneKeywords.join(", ") || "honest, deliberate"}.
+Visual direction: ${cg.selectedPalette.name} — ${cg.selectedPalette.rationale || ""}.
+Color palette to evoke: ${cg.selectedPalette.hexes.join(", ")}.
+
+Style: cinematic, museum-quality editorial photograph. Should feel like the hero spread on a $50 designer campaign manual. Sophisticated composition — atmospheric macro photography, abstract material textures, OR a single hero conceptual shot.
+Strictly NO text, NO logos, NO words, NO letters, NO type of any kind. Just atmospheric imagery.
+Avoid stock photo look. Texture, depth, strong point of view.
+Aspect ratio: 3:2 landscape.`;
+        const coverRes = await buildImageReq(coverPrompt, "3:2");
+        if (coverRes?.dataUrl) updateCampaignCover(coverRes.dataUrl);
+        // eslint-disable-next-line no-console
+        console.log("[result] campaign playbook assets ready", {
+          hasCover: Boolean(coverRes?.dataUrl),
+        });
+      }
+
+      setPlaybookAssetsReady(true);
+    };
+
+    void run();
+    // We intentionally only depend on `hydrated` — the generated objects
+    // are captured in the closure and updates from this very effect would
+    // otherwise re-trigger it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   if (!hydrated) return null;
 
@@ -212,6 +330,11 @@ export default function ResultPage() {
           <span className="font-mono text-[11px] tracking-[0.18em] uppercase text-ash">
             PDF + all assets · ZIP
           </span>
+          {!playbookAssetsReady && !downloading && (
+            <span className="font-mono text-[11px] tracking-widest uppercase text-spark animate-pulse">
+              · preparing extras…
+            </span>
+          )}
           {downloadError && (
             <span className="font-mono text-[11px] tracking-widest uppercase text-magenta">
               · {downloadError}
