@@ -398,7 +398,6 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
                 color: COLORS.ash,
                 marginTop: 6,
                 textAlign: "right",
-                fontStyle: "italic",
                 fontFamily: "Times-Italic",
               }}
             >
@@ -1486,11 +1485,11 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               <Text style={[styles.eyebrow, { color: COLORS.magenta }]}>don't</Text>
               <Text
                 style={{
-                  fontFamily: "Times-Roman",
+                  fontFamily: "Times-Italic",
                   fontSize: 14,
                   lineHeight: 1.4,
                   color: COLORS.ash,
-                  fontStyle: "italic",
+                  
                   marginTop: 4,
                 }}
               >
@@ -1577,8 +1576,8 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               color: COLORS.ash,
               marginTop: 12,
               letterSpacing: 0.4,
-              fontStyle: "italic",
-              fontFamily: "Helvetica",
+              
+              fontFamily: "Helvetica-Oblique",
             }}
           >
             {i === 0
@@ -2084,7 +2083,6 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
                 color: COLORS.ash,
                 marginTop: 6,
                 textAlign: "right",
-                fontStyle: "italic",
                 fontFamily: "Times-Italic",
               }}
             >
@@ -2394,11 +2392,11 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
               <Text style={[styles.eyebrow, { color: COLORS.magenta }]}>don't</Text>
               <Text
                 style={{
-                  fontFamily: "Times-Roman",
+                  fontFamily: "Times-Italic",
                   fontSize: 14,
                   lineHeight: 1.4,
                   color: COLORS.ash,
-                  fontStyle: "italic",
+                  
                   marginTop: 4,
                 }}
               >
