@@ -60,7 +60,10 @@ type State = {
   setMode: (m: "brand" | "campaign") => void;
   updateBrandMockup: (idx: number, dataUrl: string) => void;
   updateBrandLogo: (dataUrl: string) => void;
+  updateBrandCover: (dataUrl: string) => void;
+  updateBrandDontExamples: (examples: (string | undefined)[]) => void;
   updateCampaignMockup: (idx: number, dataUrl: string) => void;
+  updateCampaignCover: (dataUrl: string) => void;
   reset: () => void;
 };
 
@@ -142,6 +145,20 @@ export const useBRND = create<State>()(
             generatedBrand: { ...s.generatedBrand, logoImageDataUrl: dataUrl },
           };
         }),
+      updateBrandCover: (dataUrl) =>
+        set((s) => {
+          if (!s.generatedBrand) return s;
+          return {
+            generatedBrand: { ...s.generatedBrand, coverImageDataUrl: dataUrl },
+          };
+        }),
+      updateBrandDontExamples: (examples) =>
+        set((s) => {
+          if (!s.generatedBrand) return s;
+          return {
+            generatedBrand: { ...s.generatedBrand, logoDontExamples: examples },
+          };
+        }),
       updateCampaignMockup: (idx, dataUrl) =>
         set((s) => {
           if (!s.generatedCampaign) return s;
@@ -151,6 +168,16 @@ export const useBRND = create<State>()(
             generatedCampaign: {
               ...s.generatedCampaign,
               mockupImages: mockups,
+            },
+          };
+        }),
+      updateCampaignCover: (dataUrl) =>
+        set((s) => {
+          if (!s.generatedCampaign) return s;
+          return {
+            generatedCampaign: {
+              ...s.generatedCampaign,
+              coverImageDataUrl: dataUrl,
             },
           };
         }),
@@ -166,6 +193,17 @@ export const useBRND = create<State>()(
     {
       name: "brnd-store",
       storage: createJSONStorage(() => sessionStorage),
+      // Only persist the wizard INPUTS to sessionStorage. The generated*
+      // objects contain base64-encoded mockup images that can run into
+      // megabytes — easily exceeding sessionStorage's ~5MB per-origin quota
+      // and causing the persist write to throw. Generated output is in-memory
+      // only and lives for the duration of the SPA session, which is all we
+      // need: the user goes /brand → /result in one navigation.
+      partialize: (state) => ({
+        brand: state.brand,
+        campaign: state.campaign,
+        mode: state.mode,
+      }),
     }
   )
 );
