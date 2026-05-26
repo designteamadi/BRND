@@ -273,18 +273,6 @@ const PageFooter = ({
   </View>
 );
 
-const Mark = ({ color, size = 32 }: { color: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 40 40">
-    <Polygon
-      points="20,5 36,33 4,33"
-      fill="none"
-      stroke={color}
-      strokeWidth="2.5"
-    />
-    <Polygon points="20,16 28,30 12,30" fill={color} />
-  </Svg>
-);
-
 // ============================================================
 // Types
 // ============================================================
@@ -418,7 +406,8 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
             </Text>
           </View>
         ) : (
-          // Fallback: bold accent panel if cover image is missing
+          // Fallback: bold accent panel with typographic brand name if
+          // the Nano Banana 2 cover image isn't ready yet. No triangle.
           <View
             style={{
               marginTop: 20,
@@ -427,13 +416,27 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               backgroundColor: c1,
               alignItems: "center",
               justifyContent: "center",
+              padding: 40,
             }}
           >
-            <Mark color={contrastOn(c1)} size={120} />
+            <Text
+              style={{
+                fontFamily: "Times-Roman",
+                fontSize: 96,
+                lineHeight: 0.9,
+                color: contrastOn(c1),
+                textAlign: "center",
+              }}
+            >
+              {props.name}
+              <Text style={{ fontFamily: "Times-Italic" }}>.</Text>
+            </Text>
           </View>
         )}
 
-        {/* Logo lockup — use the actual generated logo, fall back to Mark */}
+        {/* Logo lockup — show the actual logo if we have one. If not,
+            the brand name typography below stands alone as the wordmark.
+            No triangle fallback. */}
         <View
           style={{
             flexDirection: "row",
@@ -442,7 +445,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
             marginTop: 4,
           }}
         >
-          {props.logoImageDataUrl ? (
+          {props.logoImageDataUrl && (
             <Image
               src={props.logoImageDataUrl}
               style={{
@@ -451,8 +454,6 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
                 objectFit: "contain",
               }}
             />
-          ) : (
-            <Mark color={c1} size={48} />
           )}
           <Text style={[styles.hero, { fontSize: 64 }]}>
             {props.name}
@@ -773,7 +774,25 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
               }}
             />
           ) : (
-            <Mark color={COLORS.noir} size={96} />
+            // No logo image — show the brand name as the wordmark.
+            <Text
+              style={{
+                fontFamily: "Times-Roman",
+                fontSize: 80,
+                lineHeight: 1,
+                color: COLORS.noir,
+              }}
+            >
+              {props.name}
+              <Text
+                style={{
+                  fontFamily: "Times-Italic",
+                  color: COLORS.magenta,
+                }}
+              >
+                .
+              </Text>
+            </Text>
           )}
         </View>
 
@@ -823,11 +842,32 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
             marginBottom: 18,
           }}
         >
-          <LogoCard bg={c0} label="primary · dark" caption="default" logo={props.logoImageDataUrl} accent={c1} />
-          <LogoCard bg={c2} label="inverted · light" caption="for light surfaces" logo={props.logoImageDataUrl} accent={c0} />
+          <LogoCard
+            bg={c0}
+            label="primary · dark"
+            caption="default"
+            logo={props.logoImageDataUrl}
+            accent={c1}
+            wordmarkText={props.name}
+          />
+          <LogoCard
+            bg={c2}
+            label="inverted · light"
+            caption="for light surfaces"
+            logo={props.logoImageDataUrl}
+            accent={c0}
+            wordmarkText={props.name}
+          />
         </View>
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <LogoCard bg={c1} label="accent" caption="for hi-impact moments" logo={props.logoImageDataUrl} accent={c0} />
+          <LogoCard
+            bg={c1}
+            label="accent"
+            caption="for hi-impact moments"
+            logo={props.logoImageDataUrl}
+            accent={c0}
+            wordmarkText={props.name}
+          />
           <LogoCard
             bg="transparent"
             label="monochrome"
@@ -835,6 +875,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
             logo={props.logoImageDataUrl}
             accent={c2}
             outline
+            wordmarkText={props.name}
           />
         </View>
 
@@ -1578,7 +1619,7 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
             borderColor: COLORS.steel,
           }}
         >
-          {props.logoImageDataUrl ? (
+          {props.logoImageDataUrl && (
             <Image
               src={props.logoImageDataUrl}
               style={{
@@ -1587,8 +1628,6 @@ export function BrandPlaybook(props: BrandPlaybookProps) {
                 objectFit: "contain",
               }}
             />
-          ) : (
-            <Mark color={c1} size={42} />
           )}
           <View style={{ flex: 1 }}>
             <Text
@@ -1894,6 +1933,8 @@ function LogoCard({
   logo,
   accent,
   outline,
+  wordmarkText,
+  wordmarkFont,
 }: {
   bg: string;
   label: string;
@@ -1901,6 +1942,10 @@ function LogoCard({
   logo?: string;
   accent: string;
   outline?: boolean;
+  /** Fallback wordmark text shown when no logo image is available. */
+  wordmarkText?: string;
+  /** Font for the fallback wordmark — usually the chosen display font. */
+  wordmarkFont?: string;
 }) {
   return (
     <View
@@ -1944,7 +1989,28 @@ function LogoCard({
             }}
           />
         ) : (
-          <Mark color={accent} size={48} />
+          // No logo image — render the wordmark in display type instead.
+          // Auto-scale so it fits within the card.
+          <Text
+            style={{
+              fontFamily: "Times-Roman",
+              fontSize:
+                wordmarkText && wordmarkText.length > 12
+                  ? 18
+                  : wordmarkText && wordmarkText.length > 7
+                  ? 24
+                  : 32,
+              lineHeight: 1,
+              color: outline ? COLORS.ash : contrastOn(bg),
+              textAlign: "center",
+              maxWidth: "85%",
+            }}
+          >
+            {wordmarkText || "—"}
+            {wordmarkText && (
+              <Text style={{ color: accent }}>.</Text>
+            )}
+          </Text>
         )}
       </View>
       <Text
@@ -2034,9 +2100,22 @@ export function CampaignPlaybook(props: CampaignPlaybookProps) {
               backgroundColor: c1,
               alignItems: "center",
               justifyContent: "center",
+              padding: 40,
             }}
           >
-            <Mark color={contrastOn(c1)} size={120} />
+            <Text
+              style={{
+                fontFamily: "Helvetica-Bold",
+                fontSize: 72,
+                lineHeight: 0.92,
+                letterSpacing: -1.5,
+                color: contrastOn(c1),
+                textAlign: "center",
+              }}
+            >
+              {cName}
+              <Text style={{ fontFamily: "Times-Italic" }}>.</Text>
+            </Text>
           </View>
         )}
 
