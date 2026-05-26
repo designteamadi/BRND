@@ -355,14 +355,18 @@ export default function BrandFlow() {
         );
       }
 
-      // -------- Stage 2 (parallel, depends on logo): 3 mockups --------
-      // We deliberately DO NOT generate the cover or the 6 logo "Don't"
-      // examples here — they're playbook-only assets, generated lazily in
-      // the background after navigation to /result so the user sees their
-      // bento ~20s sooner. The /result page has a useEffect that kicks
-      // them off post-mount.
-      const mockupPrompts = (suggestions.mockupPrompts || []).slice(0, 3);
+      // -------- Stage 2 (parallel, depends on logo): 6 categorized mockups
+      //   slot 0: HERO         9:16
+      //   slot 1: SOCIAL       1:1
+      //   slot 2: POSTER       2:3
+      //   slot 3: OOH/BILLBOARD 16:9
+      //   slot 4: COLLATERAL   4:3
+      //   slot 5: PHOTOGRAPHY  1:1
+      // The aspect ratios are matched to the AI's prompt categories so
+      // each mockup arrives in the shape the bento expects.
+      const mockupPrompts = (suggestions.mockupPrompts || []).slice(0, 6);
       const logoForComposite = logoRes?.dataUrl;
+      const MOCKUP_ASPECTS = ["9:16", "1:1", "2:3", "16:9", "4:3", "1:1"];
 
       const buildImageReq = (
         prompt: string,
@@ -388,7 +392,7 @@ export default function BrandFlow() {
             logoForComposite
               ? `${p}\n\nIMPORTANT: Apply the brand logo from the provided image naturally onto the visible product/surface/sign in this scene — preserve its proportions; match the lighting and perspective.`
               : p,
-            i === 0 ? "9:16" : "1:1",
+            MOCKUP_ASPECTS[i] || "1:1",
             Boolean(logoForComposite)
           )
         )
